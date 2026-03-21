@@ -1,0 +1,136 @@
+%% ============================================================
+%% shared/services/analytics/analytics.tex
+%% Analytics, Streaming & Data Services
+%% Classification: BOTH (SAA: service selection; SAP: data lake design)
+%% ============================================================
+
+\servicesection{Analytics \& Streaming}{\bothtag}{%
+  Service selection, data lake patterns, and streaming pipelines.}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Analytics \& Streaming Service Reference}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{comparebox}[title={Analytics services --- purpose and memory hook}]
+\begin{tabular}{@{}p{3.5cm}p{5cm}p{3cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Purpose} & \textbf{Memory Hook} \\
+\midrule
+Amazon Kinesis Data Streams
+  & High-throughput real-time ingestion and processing; ordered per shard;
+    replay up to 7 days; multiple consumers
+  & Streaming ingest \\[4pt]
+Amazon Data Firehose
+  & Fully managed delivery to S3, Redshift, or OpenSearch; 60 s buffer or
+    1 MB; no consumer code needed
+  & Stream to storage \\[4pt]
+Amazon MSK (Managed Kafka)
+  & Managed Apache Kafka; use when you need Kafka-native tooling or Kafka
+    Connect
+  & Managed Kafka \\[4pt]
+Amazon EMR
+  & Managed Hadoop/Spark cluster; big data processing, ETL, ML at scale;
+    pay for EC2 or Serverless
+  & Big data processing \\[4pt]
+Amazon Redshift
+  & Petabyte-scale columnar data warehouse; OLAP analytics; Redshift Spectrum
+    queries S3 in place
+  & Analytics warehouse \\[4pt]
+Amazon Athena
+  & Interactive SQL directly on S3; serverless; pay per query; no ETL or
+    loading required
+  & SQL on S3 \\[4pt]
+AWS Glue
+  & Serverless ETL service; prepares/transforms data; Data Catalog stores
+    metadata; used in data lake pipelines
+  & ETL / data integration \\[4pt]
+Amazon OpenSearch Service
+  & Full-text search, log analytics, near-real-time dashboards; successor
+    to Elasticsearch
+  & Search \& log analytics \\[4pt]
+Amazon QuickSight
+  & Managed BI dashboards and visual analytics; connects to Athena,
+    Redshift, S3, RDS
+  & BI dashboards \\[4pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Kinesis Deep Dive}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{comparebox}[title={Kinesis Data Streams vs Data Firehose}]
+\begin{tabular}{@{}p{3.5cm}p{4cm}p{4cm}@{}}
+\toprule
+ & \textbf{Kinesis Data Streams} & \textbf{Data Firehose} \\
+\midrule
+Management  & You manage shards/scaling          & Fully managed; auto-scales \\
+Consumers   & Multiple independent consumers     & One destination at a time \\
+Latency     & $\sim$70--200 ms                   & Near-real-time (60 s or 1 MB buffer) \\
+Replay      & Up to 7 days                       & No replay \\
+Processing  & Custom Lambda / KCL consumer       & Built-in transform (Lambda); no code needed \\
+Ordering    & Ordered per shard                  & Not guaranteed \\
+Use when    & Multiple consumers, replay, ordering needed & Deliver to S3/Redshift/OpenSearch fast \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Shard capacity}: 1 MB/s write, 2 MB/s read per shard;
+        scale out by splitting shards.
+  \item \textbf{Enhanced fan-out}: dedicated 2 MB/s per consumer per shard;
+        use when multiple consumers need high throughput independently.
+  \item \textbf{SQS vs Kinesis}: SQS = decouple, buffer, fire-and-forget;
+        Kinesis = ordered, replay, analytics on a continuous stream.
+  \item \textbf{MSK vs Kinesis}: MSK when you need Kafka-native APIs,
+        Kafka Connect, or Kafka Streams; Kinesis when you want fully managed
+        AWS-native integration.
+\end{itemize}
+\end{keyfacts}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Analytics Service Decision Tree}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Ad-hoc SQL on S3, no infrastructure} $\to$ \textbf{Athena}
+        (pay per query; works on Parquet/ORC/JSON/CSV directly in S3).
+  \item \textbf{Ongoing SQL analytics at petabyte scale} $\to$ \textbf{Redshift}
+        (load data; columnar; fast joins; Spectrum for S3 overflow).
+  \item \textbf{Serverless ETL, schema detection, data catalog} $\to$ \textbf{AWS Glue}
+        (Glue Crawlers auto-detect schema; Glue Jobs transform with PySpark/Python).
+  \item \textbf{Full-text search, log ingestion, dashboards} $\to$ \textbf{OpenSearch}
+        (ingest from Firehose or Logstash; Kibana/OpenSearch Dashboards).
+  \item \textbf{BI dashboards, business analytics} $\to$ \textbf{QuickSight}
+        (SPICE in-memory engine; ML Insights; connects to Redshift/Athena/S3).
+  \item \textbf{Big data Spark/Hadoop processing} $\to$ \textbf{EMR}
+        (use Spot for task nodes to cut costs; persistent vs transient cluster).
+  \item \textbf{Stream to S3/Redshift automatically} $\to$ \textbf{Firehose}
+        (optionally transform with Lambda; buffer by time or size).
+  \item \textbf{Real-time stream, multiple consumers, replay} $\to$ \textbf{Kinesis Data Streams}.
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}[title={[!] Analytics exam traps}]
+\begin{itemize}
+  \item \textbf{``No ETL, query data in place''} $\to$ Athena. \emph{Not} Redshift
+        (Redshift requires loading data into the cluster unless using Spectrum).
+  \item \textbf{``Real-time log monitoring and alerting''} $\to$ Kinesis $\to$ Lambda
+        \emph{or} Firehose $\to$ OpenSearch. CloudWatch Logs Insights works too for
+        AWS-native logs.
+  \item \textbf{``Existing Kafka''} $\to$ MSK (migrate existing) or Kinesis (new build).
+  \item \textbf{``Data lake with access control at column/row level''} $\to$ AWS Lake Formation
+        on top of S3 + Glue Data Catalog.
+\end{itemize}
+\end{examtip}
+
+\begin{sapdepth}
+\textbf{SAP analytics depth:} SAP-C02 adds Lake Formation governance, EMR on EKS,
+Redshift RA3 nodes (separate compute/storage), Glue DataBrew (no-code transformation),
+Kinesis Analytics (SQL/Flink on streams), and multi-account data lake patterns using
+AWS RAM to share Glue Data Catalog resources across accounts.
+Cross-account Athena federation (Athena Federated Query) allows querying sources beyond S3 --- RDS, DynamoDB, Redshift, CloudWatch --- in a single SQL query.
+\end{sapdepth}

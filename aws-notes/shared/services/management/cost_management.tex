@@ -1,0 +1,125 @@
+%% ============================================================
+%% shared/services/management/cost_management.tex
+%% Cost Management, Pricing Models & Compliance — SAA + SAP
+%% ============================================================
+
+\servicesection{Cost Management \& Pricing}{\bothtag}{Match the pricing model to the workload; measure and optimise continuously}
+
+\subsection{EC2 \& Compute Pricing Models}
+
+\begin{comparebox}[title={Compute pricing model selection}]
+\begin{tabular}{@{}p{3cm}p{2.5cm}p{6cm}@{}}
+\toprule
+\textbf{Model} & \textbf{Savings} & \textbf{When to use} \\
+\midrule
+\textbf{On-Demand}      & Baseline & Short-term, unpredictable, no commitment; dev/test \\[3pt]
+\textbf{Reserved (1/3 yr)} & Up to 72\% & Steady-state, predictable long-running workloads;
+                              Standard (sell on Marketplace) or Convertible (exchange type) \\[3pt]
+\textbf{Savings Plans}  & Up to 66\% & Flexible \$/hr commitment; applies to EC2, Lambda, Fargate
+                              across instance families and regions \\[3pt]
+\textbf{Spot Instances} & Up to 90\% & Fault-tolerant, stateless batch; 2-min interruption warning;
+                              never for production DBs or sticky sessions \\[3pt]
+\textbf{Dedicated Host} & Varies     & Bring-your-own-license (BYOL); strict compliance; physical isolation \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Pricing model decision:}
+\begin{itemize}
+  \item Steady-state predictable $\Rightarrow$ \textbf{Reserved Instance} or \textbf{Savings Plan}.
+  \item Fault-tolerant batch / flexible timing $\Rightarrow$ \textbf{Spot Instances} (up to 90\% cheaper).
+  \item Baseline steady + bursty peaks $\Rightarrow$ \textbf{Reserved for baseline + Spot for burst}.
+  \item Event-driven / spiky / unpredictable $\Rightarrow$ \textbf{Lambda + Fargate} (pay-per-use, no idle cost).
+  \item The exam almost never wants On-Demand for cost optimisation questions.
+\end{itemize}
+\end{examtip}
+
+\subsection{Cost Management Tools}
+
+\begin{comparebox}[title={AWS cost management toolset}]
+\begin{tabular}{@{}p{3.8cm}p{7.8cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{Purpose} \\
+\midrule
+\textbf{Cost Explorer}       & Visualise, analyse, and forecast historical AWS spending.
+                               Filter by service, account, tag, region. Identify top cost drivers.
+                               Generates Reserved Instance / Savings Plan recommendations. \\[4pt]
+\textbf{AWS Budgets}         & Set custom cost or usage thresholds; get email/SNS alerts
+                               \emph{before} overspend occurs. Supports budget actions
+                               (apply SCP, stop EC2, force RI purchase). \\[4pt]
+\textbf{Cost \& Usage Report (CUR)} & Most granular billing data (hourly, resource-level).
+                               Export to S3; analyse with Athena + QuickSight. \\[4pt]
+\textbf{Compute Optimizer}   & ML-based rightsizing recommendations for EC2, EBS, Lambda,
+                               ECS on EC2. Identifies over-provisioned resources. \\[4pt]
+\textbf{S3 Storage Lens}     & Org-wide S3 visibility; identify buckets with infrequent access,
+                               redundant data, and potential storage-class savings. \\[4pt]
+\textbf{Cost Allocation Tags} & Categorise costs by project, team, or environment for chargeback /
+                               showback. Must be activated in Billing Console to appear in Cost Explorer. \\[4pt]
+\textbf{Trusted Advisor}     & Best-practice checks including cost: idle load balancers,
+                               unattached EBS, low-utilisation EC2, RI coverage. \\[4pt]
+\textbf{Billing Dashboard}   & Centralised invoices, usage reports, RI management. \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsection{Cost Optimisation Best Practices}
+
+\begin{enumerate}
+  \item \textbf{Right-size first}: use \textbf{Compute Optimizer} recommendations before committing
+        to Reserved Instances. Buying RIs for oversized instances wastes money twice.
+  \item \textbf{Match pricing model to workload}: Reserved / Savings Plans for steady-state;
+        Spot for fault-tolerant batch; Lambda for sporadic event-driven.
+  \item \textbf{Adopt serverless where possible}: Lambda, Fargate, Aurora Serverless, DynamoDB
+        On-Demand eliminate idle capacity cost entirely.
+  \item \textbf{Apply S3 Lifecycle policies}: automatically tier data to Standard-IA, Glacier,
+        and Glacier Deep Archive over time. Set Intelligent-Tiering for unknown patterns.
+  \item \textbf{Delete idle resources}: unattached EBS volumes and unused Elastic IPs accrue
+        charges even when nothing is connected. Automate cleanup with Lambda + CloudWatch Events.
+  \item \textbf{Use CloudFront}: reduce expensive EC2 and S3 egress data-transfer costs by
+        caching content at edge locations; CloudFront pricing is lower than direct S3 GET egress.
+  \item \textbf{Use VPC Gateway Endpoints}: route S3 and DynamoDB traffic within the VPC
+        at zero cost --- eliminates NAT Gateway data-processing charges for these services.
+  \item \textbf{Set AWS Budgets}: configure proactive budget alerts so overspend is caught before
+        the bill arrives, not after.
+\end{enumerate}
+
+\begin{examtip}
+\textbf{Data transfer cost traps:}
+\begin{itemize}
+  \item Data transfer \emph{into} AWS is free.
+  \item Data transfer between AZs in the same region has a cost.
+  \item Data transfer \emph{out} to the internet is charged (egress).
+  \item \textbf{Use CloudFront} to serve egress traffic at lower per-GB rates.
+  \item \textbf{Use Gateway Endpoint} to eliminate NAT Gateway charges for S3/DynamoDB.
+  \item Direct Connect has lower per-GB egress rates than public internet for large volumes.
+\end{itemize}
+\end{examtip}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{AWS Compliance Programs}{\bothtag}{Regulatory frameworks and compliance resources}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{HIPAA}: US healthcare data privacy and security (Protected Health Information).
+        Many AWS services are HIPAA-eligible; requires a Business Associate Agreement (BAA).
+  \item \textbf{PCI DSS}: Payment Card Industry Data Security Standard for cardholder data.
+        AWS maintains PCI DSS Level 1 certification.
+  \item \textbf{GDPR}: EU General Data Protection Regulation; data residency and privacy.
+        Use region selection + SCPs to enforce data stays in approved regions.
+  \item \textbf{FedRAMP}: US federal government cloud compliance framework.
+        AWS GovCloud regions are FedRAMP High authorized.
+  \item \textbf{ISO 27001 / SOC 1, 2, 3}: International security and control certifications.
+        AWS is certified across all of these.
+  \item \textbf{AWS Artifact}: Self-service on-demand portal to download AWS compliance
+        reports (SOC, PCI, ISO), certifications, and legal agreements (BAA, NDA).
+        Not a monitoring tool --- just a document repository.
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+\textbf{``Prove AWS is compliant with HIPAA/PCI/SOC2 to an auditor''} $\Rightarrow$ \textbf{AWS Artifact}
+(download the report). \textbf{Maintain your own compliance continuously} $\Rightarrow$ \textbf{AWS Config}
++ \textbf{Audit Manager} (collect evidence automatically).
+\end{examtip}

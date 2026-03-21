@@ -1,0 +1,293 @@
+%% ============================================================
+%% saa/questions.tex  —  SAA-C03 Practice Questions
+%% ============================================================
+
+\section{SAA-C03 Practice Questions}
+\label{sec:saa-questions}
+
+\textit{SAA-C03 level questions. Focus on service selection, security, HA, and cost trade-offs.}
+
+%% ── Domain 1: Security ────────────────────────────────────────
+
+\subsection{Domain 1 --- Design Secure Architectures}
+
+\begin{question}{saa-q1-sg-nacl}{SAA}{Security Groups vs NACLs}
+A solutions architect needs to implement a network security control that will block a specific external IP address from reaching any instance in a subnet, regardless of Security Group rules. Which solution should they use?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Add a deny rule to the Security Group of each instance in the subnet.
+  \item Add a deny rule with a low rule number to the Network ACL (NACL) associated with the subnet.
+  \item Enable VPC Flow Logs to capture and discard the traffic.
+  \item Use AWS WAF to block the IP address.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: Network ACLs are stateless, subnet-level firewalls that support explicit \texttt{Deny} rules. Rules are evaluated in ascending order by rule number; a low-numbered Deny ensures the block takes effect before any Allow rule. This protects all instances in the subnet regardless of individual Security Group configurations.
+
+\textbf{A} is wrong: Security Groups are \emph{stateful} and only support \texttt{Allow} rules --- you cannot add explicit Deny rules to a Security Group. Removing an allow rule would affect legitimate traffic too.
+
+\textbf{C} is wrong: VPC Flow Logs capture metadata for monitoring and analysis; they do not block traffic.
+
+\textbf{D} is wrong: AWS WAF operates at Layer 7 (HTTP/HTTPS) and requires an ALB or CloudFront. It does not apply at the subnet network level for general TCP/IP traffic.
+
+\textit{Key: NACL = stateless + explicit Deny (good for subnet-level IP blocking). Security Group = stateful + Allow only (good for per-instance control).}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{saa-q2-iam-role}{SAA}{IAM roles for EC2}
+An EC2 instance running a web application needs to read objects from an S3 bucket in the same account. What is the MOST secure way to grant this access?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Create an IAM user, generate access keys, and store the keys as environment variables on the EC2 instance.
+  \item Create an IAM user, generate access keys, and store them in the \texttt{\textasciitilde/.aws/credentials} file on the instance.
+  \item Create an IAM role with an S3 read policy, attach the role to the EC2 instance as an instance profile.
+  \item Embed the AWS account root user credentials in the application configuration file.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{C}
+\textbf{C} is correct: IAM roles assigned as instance profiles provide temporary, automatically-rotated credentials via the instance metadata service (\texttt{169.254.169.254}). No long-term credentials are stored on the instance. This is the AWS best practice.
+
+\textbf{A} and \textbf{B} are wrong: long-term IAM user access keys stored on an instance are a security risk --- if the instance is compromised, the keys are exposed permanently. They also do not rotate automatically.
+
+\textbf{D} is wrong: using root user credentials anywhere in an application violates every security best practice and gives unrestricted access to the entire account.
+\end{answer}
+
+%% ── Domain 2: Resilient Architectures ─────────────────────────
+
+\subsection{Domain 2 --- Design Resilient Architectures}
+
+\begin{question}{saa-q3-rds-ha}{SAA}{RDS HA vs read scaling}
+A company runs a read-heavy web application with a MySQL RDS database. The read replica in the same region is reaching its read IOPS limit. The company also wants to protect against an AZ failure. What should the architect recommend?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Migrate to RDS Multi-AZ only; it handles both reads and failover.
+  \item Enable RDS Multi-AZ for high availability AND add additional read replicas to distribute read traffic.
+  \item Add more read replicas in the same AZ as the primary.
+  \item Increase the instance size of the primary database to handle all reads.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: RDS Multi-AZ provides synchronous standby replication in a different AZ for HA and automatic failover. Read Replicas are asynchronous and serve read traffic to reduce load on the primary. They serve different purposes and can be combined.
+
+\textbf{A} is wrong: the Multi-AZ standby replica is \emph{not} readable --- it only becomes the primary on failover. It does not help with read scaling.
+
+\textbf{C} is wrong: adding replicas in the same AZ as the primary does not protect against AZ failure.
+
+\textbf{D} is wrong: scaling up the primary handles more writes/reads temporarily but does not solve HA (AZ failure) and is more expensive than distributing reads.
+\end{answer}
+
+%% ── Domain 3: High-Performing Architectures ───────────────────
+
+\subsection{Domain 3 --- Design High-Performing Architectures}
+
+\begin{question}{saa-q4-cache}{SAA}{caching strategy}
+A web application experiences database overload during peak hours due to repeated identical queries (e.g.\ product catalogue reads). The team wants to add a caching layer with \emph{microsecond latency} and reduce database load. Which solution should they choose?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Enable RDS Query Cache.
+  \item Place Amazon ElastiCache for Redis in front of the database.
+  \item Add more read replicas to the RDS database.
+  \item Use CloudFront to cache the database query results.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: ElastiCache for Redis is an in-memory data store delivering sub-millisecond (microsecond-level) read latency. It can cache the results of frequently executed queries so the database is only hit on cache misses (cache-aside pattern).
+
+\textbf{A} is wrong: MySQL RDS Query Cache was deprecated in MySQL 8.0 and is unreliable under heavy concurrent writes; it is not a valid modern caching solution.
+
+\textbf{C} is wrong: read replicas help with read scaling but still hit the database engine; they do not provide in-memory microsecond caching and add replication lag.
+
+\textbf{D} is wrong: CloudFront caches HTTP responses at the edge, not arbitrary database query results at the application tier.
+\end{answer}
+
+%% ── Domain 4: Cost-Optimised Architectures ────────────────────
+
+\subsection{Domain 4 --- Design Cost-Optimized Architectures}
+
+\begin{question}{saa-q5-s3-lifecycle}{SAA}{S3 storage class selection}
+A company stores large log files in S3. The logs are frequently accessed for the first 30 days, rarely accessed between day 31 and day 90, and then must be archived but still retrievable within a few hours for compliance audits. Which S3 lifecycle policy minimises cost?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Keep all logs in S3 Standard indefinitely.
+  \item Transition to S3 Standard-IA after 30 days, then to S3 Glacier Flexible Retrieval after 90 days.
+  \item Move all logs to S3 Glacier Deep Archive immediately upon upload.
+  \item Transition to S3 One Zone-IA after 30 days, then delete after 90 days.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: S3 Standard-IA is designed for infrequent access (lower storage cost than Standard) with millisecond retrieval. After 90 days, S3 Glacier Flexible Retrieval stores at very low cost with retrieval time of minutes to hours --- satisfying the compliance audit requirement.
+
+\textbf{A} is wrong: keeping everything in S3 Standard is the most expensive option.
+
+\textbf{C} is wrong: Glacier Deep Archive has a 12-hour retrieval time (not ``a few hours'') and deletes data automatically is not part of the policy. Also immediately moving data to Glacier means the first-30-days frequent access would be slow and expensive (retrieval fees).
+
+\textbf{D} is wrong: deleting after 90 days violates the compliance archive requirement. One Zone-IA also has lower durability (single AZ).
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+%% Questions from batch 2 (SAA Knowledge Catch guide)
+%% ──────────────────────────────────────────────────────────────
+
+%% ── Domain 1 continued ────────────────────────────────────────
+
+\begin{question}{saa-q6-cloudfront-oac}{SAA}{CloudFront + S3 access control}
+A company hosts a private document library in an S3 bucket. Users should only be able to access documents through a CloudFront distribution --- never by direct S3 URL. The S3 bucket must remain private. What is the MOST secure configuration?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Enable S3 static website hosting and configure CloudFront to use the website endpoint as origin.
+  \item Create an Origin Access Control (OAC), attach it to the CloudFront distribution, and update the S3 bucket policy to allow \texttt{s3:GetObject} only from the OAC principal. Keep Block Public Access enabled on the bucket.
+  \item Create a pre-signed URL for each document and embed those URLs in the CloudFront distribution configuration.
+  \item Make the S3 bucket public and restrict access at the CloudFront level using signed URLs.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: Origin Access Control (OAC) is the current best-practice way to restrict S3 access exclusively to CloudFront. The OAC acts as a CloudFront identity; the S3 bucket policy grants \texttt{s3:GetObject} only to that identity. With Block Public Access still enabled, direct S3 requests from any other source are denied.
+
+\textbf{A} is wrong: the S3 website endpoint is HTTP-only and does not require authentication --- it is inherently public. Using the website endpoint instead of the S3 REST endpoint also bypasses OAC entirely.
+
+\textbf{C} is wrong: pre-signed URLs are generated per object and expire; embedding them in a CloudFront config is not a scalable or sensible architecture pattern.
+
+\textbf{D} is wrong: making the bucket public means anyone with the direct S3 URL can bypass CloudFront entirely, regardless of CloudFront-level signed URL enforcement.
+
+\textit{Key: OAC (replaces legacy OAI) + S3 bucket policy + Block Public Access = the three-part combination that enforces CloudFront-only access.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{saa-q7-lambda-vpc}{SAA}{Lambda in VPC --- internet access}
+A Lambda function is configured to run inside a private VPC subnet so it can access an RDS database. After deployment, the function fails to call an external third-party REST API. Everything else (RDS connection, IAM role, function code) is verified correct. What is the MOST likely cause?
+
+\begin{enumerate}[label=\Alph*.]
+  \item The Lambda function's memory is too low to handle TLS handshakes.
+  \item Lambda functions inside a VPC lose internet access; there is no NAT Gateway in the subnet to route outbound internet traffic.
+  \item The Lambda execution role is missing the \texttt{ec2:CreateNetworkInterface} permission.
+  \item Lambda inside a VPC cannot reach endpoints outside the AWS region.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: by default, Lambda runs in an AWS-managed VPC that has internet access. When you attach Lambda to \emph{your own} VPC subnet, it uses that subnet's route table. A private subnet has no route to the internet, so external API calls fail. The fix is either (1) add a NAT Gateway in a public subnet and update the route table, or (2) use a VPC Endpoint if the destination is an AWS service.
+
+\textbf{A} is wrong: memory affects compute capacity, not networking. TLS is a CPU operation but not limited by the memory settings relevant here.
+
+\textbf{C} is wrong: \texttt{ec2:CreateNetworkInterface} is needed by the Lambda service role during ENI creation at deployment time. If the function is already running (i.e.\ it reaches RDS), the ENI was created successfully. The missing permission would have caused a deployment error, not a runtime connectivity failure to external URLs.
+
+\textbf{D} is wrong: Lambda can reach external endpoints from a VPC --- but only if the network path exists (NAT Gateway or internet route).
+
+\textit{Key: Lambda in VPC = private subnet = no internet by default. Always add NAT Gateway for internet + VPC Endpoint for AWS services (S3, DynamoDB, etc.).}
+\end{answer}
+
+%% ── Domain 2 continued ────────────────────────────────────────
+
+\begin{question}{saa-q8-route53-failover}{SAA}{Route 53 active-passive DR}
+A company runs its production application in \texttt{us-east-1}. They want an automatic DNS-level failover to a standby environment in \texttt{eu-west-1} if the primary region becomes unhealthy. The failover should be completely automatic --- no manual intervention. Which Route~53 configuration achieves this?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Create a Weighted routing policy with 100\% weight on the primary record; update weights manually during a failover.
+  \item Create a Latency-based routing policy across both regions; Route~53 will route to the healthy region automatically.
+  \item Create a Failover routing policy with a Primary record pointing to \texttt{us-east-1} and a Secondary record pointing to \texttt{eu-west-1}; attach a Route~53 health check to the Primary record.
+  \item Create a Geolocation policy routing all traffic to \texttt{us-east-1}; create a CloudWatch alarm to notify the team on failure.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{C}
+\textbf{C} is correct: Route~53 Failover routing is specifically designed for active-passive DR. The Primary record is served as long as its health check passes. When the health check fails, Route~53 automatically begins returning the Secondary record. No manual DNS changes are required.
+
+\textbf{A} is wrong: Weighted routing distributes traffic by percentage. Updating weights manually during a disaster is not automatic failover --- it requires human intervention and introduces recovery time.
+
+\textbf{B} is wrong: Latency-based routing selects the region with the lowest latency for the user. It does not implement active-passive failover; if the primary region is unhealthy but not removed from the record set, Route~53 may still route traffic there.
+
+\textbf{D} is wrong: Geolocation routing does not provide failover. A CloudWatch alarm notifies the team but still requires manual action to redirect traffic.
+
+\textit{Key: Failover routing + Route~53 health check = fully automatic DNS-level active-passive DR.}
+\end{answer}
+
+%% ── Domain 3 continued ────────────────────────────────────────
+
+\begin{question}{saa-q9-dynamodb-vs-rds}{SAA}{DynamoDB vs RDS selection}
+A startup is building a user session management system. Sessions are created and deleted frequently, have a short lifespan (30 minutes), require single-digit millisecond read latency at any scale, and do not need complex queries or joins. Which database should they use?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Amazon RDS for MySQL with read replicas for read scaling.
+  \item Amazon Aurora with Multi-AZ for high availability.
+  \item Amazon DynamoDB with TTL enabled on the session expiry attribute.
+  \item Amazon Redshift for fast session analytics.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{C}
+\textbf{C} is correct: DynamoDB is purpose-built for key-value workloads with single-digit millisecond latency at any scale. Sessions are a perfect fit: each session is identified by a unique key (session ID), there are no joins, and TTL automatically deletes expired sessions after 30 minutes at no extra cost.
+
+\textbf{A} is wrong: RDS MySQL can handle sessions but adds operational overhead (instance management), scales vertically, and has higher latency for simple key lookups than DynamoDB. Adding read replicas helps scaling but still isn't necessary for this simple key-value pattern.
+
+\textbf{B} is wrong: Aurora is an excellent relational database for complex workloads, but it is over-engineered and over-priced for a simple key-value session store.
+
+\textbf{D} is wrong: Redshift is a columnar data warehouse for analytical queries on large datasets, not a transactional or session data store. It has high latency for individual item lookups.
+
+\textit{Key: DynamoDB = key-value + millisecond latency + serverless scale + TTL. RDS/Aurora = relational + SQL + complex queries. Never use Redshift for OLTP.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{saa-q10-cloudwatch-chain}{SAA}{CloudWatch alarm and Auto Scaling}
+A web application runs on an Auto Scaling Group behind an ALB. The team wants to automatically add instances when average CPU utilisation exceeds 70\% for 5 consecutive minutes, and send an email notification to the ops team at the same time. What is the SIMPLEST architecture to achieve both goals?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Create a CloudWatch alarm on the ASG's average CPU metric. Configure the alarm to trigger two actions: (1) an SNS topic that emails the ops team, and (2) a target tracking scaling policy on the ASG.
+  \item Write a Lambda function that polls CPU metrics every minute and calls the ASG \texttt{SetDesiredCapacity} API and SES \texttt{SendEmail} API when the threshold is exceeded.
+  \item Use AWS Health Dashboard to monitor CPU and send email notifications; use Elastic Beanstalk for auto scaling.
+  \item Configure a CloudWatch alarm and attach it to an SQS queue; a Lambda function reads the queue and scales the ASG.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{A}
+\textbf{A} is correct: A single CloudWatch alarm can trigger \emph{multiple actions simultaneously}. Attaching an SNS topic sends the email notification; a scaling policy (or a step/target tracking policy) adjusts the ASG capacity. This requires no custom code and is the native, simplest solution.
+
+\textbf{B} is wrong: writing a Lambda function that polls metrics is reinventing the wheel. CloudWatch alarms already provide threshold evaluation, consecutive-period checking, and multi-action triggering natively --- without polling or custom code.
+
+\textbf{C} is wrong: AWS Health Dashboard reports on AWS service health events, not application-level CPU metrics. Elastic Beanstalk is an application platform, not a generic auto scaling solution for this pattern.
+
+\textbf{D} is wrong: routing through an SQS queue adds unnecessary complexity and latency (SQS is not a real-time trigger for scaling). CloudWatch alarm $\rightarrow$ scaling policy is direct and purpose-built.
+
+\textit{Key: CloudWatch alarm supports multiple simultaneous actions (SNS + scaling policy). Always prefer native integrations over custom polling code.}
+\end{answer}
+
+%% ── Domain 4 continued ────────────────────────────────────────
+
+\begin{question}{saa-q11-alb-vs-nlb}{SAA}{ALB vs NLB selection}
+A solutions architect is designing a new service that exposes a \textbf{TCP-based financial trading API}. The clients require a \textbf{static IP address} to whitelist in their corporate firewalls. The service must handle millions of connections per second with ultra-low latency. Which load balancer should be used?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Application Load Balancer (ALB) --- it provides path-based routing and has fixed IPs.
+  \item Network Load Balancer (NLB) --- it operates at Layer 4, provides static IP addresses per AZ, and handles millions of connections per second.
+  \item Classic Load Balancer (CLB) --- it supports both TCP and HTTP and provides the lowest latency.
+  \item Application Load Balancer (ALB) with an Elastic IP attached to the load balancer.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: NLB operates at Layer 4 (TCP/UDP), allocates \emph{static IP addresses per Availability Zone} (or you can assign Elastic IPs), and is purpose-built for millions of requests per second with extremely low latency. It is the correct choice for non-HTTP protocols and client firewall whitelisting.
+
+\textbf{A} is wrong: ALB operates at Layer 7 (HTTP/HTTPS). It does \emph{not} provide static IP addresses --- it uses DNS names that resolve to changing IPs. ALB cannot terminate raw TCP/TLS financial API connections that are not HTTP-based.
+
+\textbf{C} is wrong: Classic Load Balancer is legacy and should not be used for new architectures. It does not provide static IPs and does not scale to millions of connections per second.
+
+\textbf{D} is wrong: you cannot attach Elastic IPs directly to an ALB. Only NLB supports Elastic IP assignment per AZ.
+
+\textit{Key: NLB = Layer 4, static IP, millions req/s, TCP/UDP. ALB = Layer 7, HTTP routing, Lambda targets. If the question mentions static IP or non-HTTP protocol, the answer is NLB.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+%% Suggested future topics:
+%% - EC2 Spot vs On-Demand for batch workloads
+%% - EBS gp3 vs io2 volume type selection
+%% - VPC Gateway Endpoint vs Interface Endpoint for S3
+%% - KMS CMK vs AWS-managed key selection
+%% - SQS Standard vs FIFO selection

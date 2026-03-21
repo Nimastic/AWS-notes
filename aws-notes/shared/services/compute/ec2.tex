@@ -1,0 +1,209 @@
+%% ============================================================
+%% shared/services/compute/ec2.tex
+%% Amazon EC2 — Elastic Compute Cloud
+%% Relevant to: SAA (core) + SAP (advanced placement / migration)
+%% ============================================================
+
+\servicesection{Amazon EC2}{\bothtag}{%
+  Virtual servers in the cloud. The most fundamental AWS compute service.}
+
+\subsection{What is EC2?}
+
+EC2 provides resizable compute capacity in the cloud. You rent virtual machines
+(called \textbf{instances}) rather than buying physical hardware. You choose the
+OS, CPU, RAM, storage, and network configuration.
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Instances run inside a \textbf{VPC} in a specific \textbf{Availability Zone}
+  \item Billing: per-second (Linux) or per-hour (Windows) — minimum 60 seconds
+  \item An \textbf{AMI} (Amazon Machine Image) defines the OS + pre-installed software
+  \item \textbf{User data} scripts run once at first boot (bootstrap automation)
+  \item \textbf{Instance metadata} is accessible at \texttt{169.254.169.254}
+\end{itemize}
+\end{keyfacts}
+
+% ─────────────────────────────────────────
+\subsection{Instance Types}
+
+Instance types follow a naming pattern: \texttt{<family><generation>.<size>}
+e.g.\ \texttt{m6i.large}, \texttt{c5.xlarge}, \texttt{r6g.2xlarge}.
+
+\begin{comparebox}[title={Instance family cheat-sheet}]
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Family} & \textbf{Use case} & \textbf{Examples} \\
+\midrule
+General Purpose   & Balanced CPU/RAM/network  & \texttt{m6i, t3, t4g} \\
+Compute Optimised & High CPU ratio           & \texttt{c6i, c7g}     \\
+Memory Optimised  & Large in-memory workloads & \texttt{r6i, x2idn, u-*} \\
+Storage Optimised & High sequential I/O       & \texttt{i3, i4i, d3}  \\
+Accelerated       & GPU / ML inference        & \texttt{p4, g5, inf2} \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{T-family (burstable):} T3/T4g instances accumulate CPU credits when idle
+and spend them during spikes. Use \texttt{unlimited} mode to avoid throttling
+at extra cost. Exam favourite for variable-load web apps with a low baseline.
+\end{examtip}
+
+% ─────────────────────────────────────────
+\subsection{Purchasing Options}
+
+\begin{comparebox}[title={Pricing models}]
+\begin{tabular}{@{}p{3.2cm}p{5.5cm}p{4cm}@{}}
+\toprule
+\textbf{Model} & \textbf{Best for} & \textbf{Discount vs On-Demand} \\
+\midrule
+On-Demand          & Short-term, unpredictable          & —                \\
+Reserved (1 or 3yr)& Steady-state, predictable load     & up to 72\%       \\
+Savings Plans      & Flexible RI alternative            & up to 66\%       \\
+Spot               & Fault-tolerant, flexible workloads & up to 90\%       \\
+Dedicated Host     & License compliance (BYOL)          & varies           \\
+Dedicated Instance & Single-tenant hardware (no BYOL)   & varies           \\
+Capacity Reservation & Reserve AZ capacity (no discount) & —               \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Spot Instance interruption} = 2-minute warning via instance metadata
+and EventBridge. Architect around this with \emph{Spot + On-Demand mixed}
+Auto Scaling groups. Keywords: "lowest cost," "fault-tolerant," "batch jobs."
+\end{examtip}
+
+\begin{gotcha}
+Reserved Instances apply to a \textbf{specific AZ} (Zonal RI → capacity reserved)
+or \textbf{any AZ in a region} (Regional RI → no capacity reservation but flexible).
+Exam will test whether you need the capacity guarantee.
+\end{gotcha}
+
+% ─────────────────────────────────────────
+\subsection{Storage for EC2}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{EBS (Elastic Block Store)} — network-attached, persists after
+        instance stop/terminate (if configured). One EBS $\leftrightarrow$ one AZ.
+  \item \textbf{Instance Store} — physically attached NVMe; \emph{ephemeral}
+        (lost on stop/terminate). Fastest possible IOPS. Good for caches/scratch.
+  \item \textbf{EFS} — shared NFS mount across multiple instances/AZs.
+  \item \textbf{FSx for Windows} — SMB share for Windows workloads.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{EBS Volume Types}
+\begin{comparebox}[title={EBS types}]
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Type}  & \textbf{Use case}          & \textbf{Max IOPS} & \textbf{Max throughput} \\
+\midrule
+gp3 (SSD)      & General purpose boot/dev   & 16,000            & 1,000 MB/s \\
+gp2 (SSD)      & Legacy general purpose     & 16,000            & 250 MB/s   \\
+io2 Block Expr & Critical DBs (sub-ms)      & 256,000           & 4,000 MB/s \\
+io1 (SSD)      & I/O intensive DBs          & 64,000            & 1,000 MB/s \\
+st1 (HDD)      & Throughput-heavy big data  & 500               & 500 MB/s   \\
+sc1 (HDD)      & Cold, infrequent access    & 250               & 250 MB/s   \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{gp3 vs gp2:} gp3 lets you provision IOPS and throughput \emph{independently}.
+gp2 ties IOPS to size (3 IOPS/GB, max 16,000). Default to gp3 for new workloads.
+\end{examtip}
+
+% ─────────────────────────────────────────
+\subsection{Networking}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Each instance gets a \textbf{primary private IP} in its subnet (persists)
+  \item \textbf{Elastic IP (EIP)} — static public IP you own; reassignable.
+        \cost{Charged when \emph{not} attached to a running instance.}
+  \item \textbf{ENI (Elastic Network Interface)} — virtual NIC; you can attach
+        multiple ENIs to an instance for network separation.
+  \item \textbf{Enhanced Networking} — SR-IOV for higher throughput, lower latency.
+        Enabled via ENA driver (most modern instances) or Intel 82599 VF.
+  \item \textbf{Placement Groups}:
+    \begin{itemize}
+      \item \emph{Cluster} — same rack, lowest latency, 10 Gbps between instances.
+      \item \emph{Spread} — different hardware, max 7 instances/AZ.
+      \item \emph{Partition} — racks isolated per partition; for Hadoop/Kafka/HDFS.
+    \end{itemize}
+\end{itemize}
+\end{keyfacts}
+
+% ─────────────────────────────────────────
+\subsection{EC2 Auto Scaling}
+
+Auto Scaling maintains the \emph{desired capacity}, replacing unhealthy instances
+and scaling in/out based on policies.
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Launch Template} (preferred) or Launch Configuration (legacy)
+  \item \textbf{Scaling policies}:
+    \begin{itemize}
+      \item \emph{Target Tracking} — keep metric at a value (e.g.\ CPU = 50\%).
+            Simplest; AWS manages scale-in/out automatically.
+      \item \emph{Step Scaling} — scale by different amounts at different thresholds.
+      \item \emph{Scheduled} — predictable load patterns (e.g.\ weekday 9am).
+      \item \emph{Predictive} — ML-based, pre-warms capacity.
+    \end{itemize}
+  \item \textbf{Cooldown period} — default 300 s; prevents thrashing.
+  \item \textbf{Warm-up period} — time before new instance counts toward metrics.
+  \item \textbf{Lifecycle hooks} — pause instance at launch/terminate for custom logic.
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+  \textbf{"Scale fast, scale slow":} Target tracking with a low scale-out cooldown
+  handles sudden spikes. Add a longer scale-in cooldown to avoid premature
+  termination. Pair with an \emph{ALB} for HTTP(S) and \emph{NLB} for TCP.
+\end{examtip}
+
+% ─────────────────────────────────────────
+\subsection{Security}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Security Groups} — stateful firewall at the instance/ENI level.
+        Default: allow all outbound, deny all inbound.
+  \item \textbf{IAM Instance Profile} — grants the instance an IAM role.
+        \emph{Never} store credentials on an instance; use roles instead.
+  \item \textbf{Key Pairs} — RSA key for SSH (Linux) / RDP password decrypt (Windows).
+        AWS stores the public key only.
+  \item \textbf{EC2 Instance Connect} — browser-based SSH without long-lived keys.
+  \item \textbf{SSM Session Manager} — shell access without SSH, no open port 22
+        needed. Preferred for secure environments.
+\end{itemize}
+\end{keyfacts}
+
+\begin{saadepth}
+For the SAA exam, understand the \textbf{Security Group vs NACL} distinction:
+Security Groups are stateful (return traffic auto-allowed), NACLs are stateless
+(return traffic needs explicit allow). NACLs apply at the subnet level.
+\end{saadepth}
+
+\begin{sapdepth}
+SAP scenarios involve \textbf{migrating large EC2 fleets}:
+\begin{itemize}
+  \item \awsservice{AWS Migration Hub} — track migration progress centrally.
+  \item \awsservice{AWS Application Migration Service (MGN)} — lift-and-shift at scale;
+        replicates disks continuously, minimal downtime cutover.
+  \item \awsservice{VM Import/Export} — one-off migrations from VMware/Hyper-V.
+  \item Right-sizing: use \awsservice{AWS Compute Optimizer} (ML recommendations)
+        or \awsservice{Trusted Advisor} for over-provisioned instances.
+  \item \textbf{Mixed-instance policies} in ASG: combine Spot + On-Demand with
+        multiple instance families/sizes for cost and availability.
+\end{itemize}
+\end{sapdepth}
+
+\begin{gotcha}
+Stopping vs Terminating: a \textbf{stopped} instance retains its EBS root volume;
+a \textbf{terminated} instance deletes it (unless \texttt{DeleteOnTermination=false}).
+Hibernate preserves RAM to EBS — instance must be EBS-backed, encryption enabled.
+\end{gotcha}

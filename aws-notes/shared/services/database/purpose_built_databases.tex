@@ -1,0 +1,148 @@
+%% ============================================================
+%% shared/services/database/purpose_built_databases.tex
+%% Purpose-Built Databases & Caching — SAA + SAP
+%% ============================================================
+
+\servicesection{Purpose-Built Databases}{\bothtag}{Right database for the right workload}
+
+AWS offers specialised databases for different data models. Choosing the right one is a
+core exam skill.
+
+\begin{comparebox}[title={Purpose-built database selection guide}]
+\begin{tabular}{@{}p{3.5cm}p{4cm}p{4cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Model / Use case} & \textbf{Key characteristic} \\
+\midrule
+\textbf{RDS / Aurora}    & Relational (SQL); OLTP; structured data with joins &
+  ACID; up to 5$\times$ MySQL, 3$\times$ PostgreSQL performance (Aurora) \\[4pt]
+\textbf{DynamoDB}        & Key-value / document; any scale; millisecond latency &
+  Serverless; TTL; Global Tables; DAX caching \\[4pt]
+\textbf{Redshift}        & OLAP / data warehouse; petabyte-scale analytics &
+  Columnar; Redshift Spectrum queries S3 directly \\[4pt]
+\textbf{ElastiCache}     & In-memory caching (Redis or Memcached) &
+  Sub-millisecond latency; sessions, leaderboards \\[4pt]
+\textbf{Neptune}         & Graph database; highly connected data &
+  Social networks, fraud detection, knowledge graphs \\[4pt]
+\textbf{DocumentDB}      & MongoDB-compatible; JSON document model &
+  Managed MongoDB; auto-scales storage \\[4pt]
+\textbf{Keyspaces}       & Apache Cassandra-compatible; wide-column &
+  Serverless; scales automatically; Cassandra CQL \\[4pt]
+\textbf{Timestream}      & Time-series; IoT, operational metrics, telemetry &
+  Stores trillions of events/day; built-in analytics \\[4pt]
+\textbf{OpenSearch}      & Search \& log analytics; full-text search &
+  Elasticsearch-compatible; Kibana dashboards \\[4pt]
+\textbf{MemoryDB}        & Redis-compatible; durable in-memory primary store &
+  Persistence with multi-AZ; microsecond reads \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Quick decision triggers:}
+\begin{itemize}
+  \item ``Graph / social network / fraud detection'' $\Rightarrow$ \textbf{Neptune}
+  \item ``Time-series / IoT telemetry'' $\Rightarrow$ \textbf{Timestream}
+  \item ``Full-text search / log analytics'' $\Rightarrow$ \textbf{OpenSearch}
+  \item ``MongoDB workload'' $\Rightarrow$ \textbf{DocumentDB}
+  \item ``Cassandra workload'' $\Rightarrow$ \textbf{Keyspaces}
+  \item ``Petabyte analytics / data warehouse'' $\Rightarrow$ \textbf{Redshift}
+  \item ``Durable Redis (primary database, not just cache)'' $\Rightarrow$ \textbf{MemoryDB}
+  \item ``Session cache / leaderboard / pub-sub'' $\Rightarrow$ \textbf{ElastiCache (Redis)}
+\end{itemize}
+\end{examtip}
+
+%% ────────────────────────────────────────────────────────────────
+
+\subsection{Amazon Redshift}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Petabyte-scale \textbf{columnar data warehouse}; OLAP (not OLTP).
+  \item \textbf{Redshift Spectrum}: run SQL queries directly on data in S3 without loading;
+        extends warehouse to data lake.
+  \item \textbf{Concurrency Scaling}: automatically adds temporary read capacity during bursts.
+  \item \textbf{RA3 nodes}: separate compute and storage; store data on S3-backed managed storage
+        (lower cost at scale).
+  \item Integrates with QuickSight, Athena, SageMaker, Glue.
+  \item Single AZ by default; \textbf{Multi-AZ} option available for RA3 (preview).
+\end{itemize}
+\end{keyfacts}
+
+\begin{gotcha}
+Redshift is for \textbf{analytics (OLAP)}, not transactions (OLTP). Never use Redshift for
+high-concurrency transactional workloads --- use Aurora or RDS instead.
+INSERT/UPDATE performance is poor compared to row-store databases.
+\end{gotcha}
+
+%% ────────────────────────────────────────────────────────────────
+
+\subsection{Amazon ElastiCache}
+
+\begin{comparebox}[title={ElastiCache Redis vs Memcached}]
+\begin{tabular}{@{}p{3.5cm}p{4cm}p{4cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Redis} & \textbf{Memcached} \\
+\midrule
+Data structures  & Strings, hashes, lists, sets, sorted sets, streams & Simple key-value only \\
+Persistence      & RDB snapshots + AOF log & None \\
+Replication      & Primary + replicas; Multi-AZ failover & None \\
+Cluster mode     & Yes (horizontal sharding) & Yes (multi-node) \\
+Pub/Sub          & Yes & No \\
+Sorted sets      & Yes (leaderboards, rate limiting) & No \\
+Lua scripting    & Yes & No \\
+Best for         & Sessions, leaderboards, pub/sub, real-time analytics,
+                   complex data structures & Simple distributed caching,
+                   multi-threaded, stateless \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\textbf{Caching patterns:}
+\begin{itemize}
+  \item \textbf{Cache-aside (lazy loading)}: app checks cache first; on miss, fetches from DB
+        and populates cache. Most common pattern. Handles cache misses gracefully.
+  \item \textbf{Write-through}: write to cache and DB simultaneously. Cache always current;
+        extra write penalty; may cache data never read.
+  \item \textbf{Session store}: store user sessions in Redis with TTL; stateless app servers;
+        ALB sticky sessions not needed.
+\end{itemize}
+
+\begin{examtip}
+\textbf{Redis} for anything requiring persistence, replication, complex data structures, pub/sub.
+\textbf{Memcached} for simple, multi-threaded, stateless caching where simplicity matters.
+In practice, Redis is almost always the right answer on the exam.
+\end{examtip}
+
+%% ────────────────────────────────────────────────────────────────
+
+\subsection{Amazon OpenSearch Service}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Managed Elasticsearch + Kibana (OpenSearch Dashboards); fork from Elasticsearch 7.10.
+  \item \textbf{Use cases}: application log analytics, full-text search, real-time monitoring,
+        clickstream analytics.
+  \item Common pattern: data pipeline $\rightarrow$ Kinesis Firehose $\rightarrow$ OpenSearch;
+        or CloudWatch Logs $\rightarrow$ Lambda $\rightarrow$ OpenSearch.
+  \item Multi-AZ with 3+ data nodes; dedicated master nodes for stability.
+  \item \textbf{UltraWarm}: lower-cost storage tier for infrequently queried data.
+  \item \textbf{Cold Storage}: detach indices to S3; reattach for querying.
+\end{itemize}
+\end{keyfacts}
+
+\begin{sapdepth}
+\textbf{SAP: Database modernisation patterns:}
+\begin{itemize}
+  \item \textbf{Oracle/SQL Server $\rightarrow$ Aurora}: eliminate expensive licensing costs.
+        Use SCT + DMS for schema conversion and migration.
+        Aurora Babelfish allows SQL Server apps to run on Aurora PostgreSQL with minimal code change.
+  \item \textbf{MySQL/PostgreSQL $\rightarrow$ Aurora}: drop-in compatible; up to 5$\times$/3$\times$ performance.
+  \item \textbf{Self-managed Elasticsearch $\rightarrow$ OpenSearch Service}: eliminate operational burden.
+  \item \textbf{Relational $\rightarrow$ DynamoDB}: for simple key-value access patterns at scale;
+        eliminates provisioned capacity management.
+  \item \textbf{Data Warehouse $\rightarrow$ Redshift}: for petabyte-scale OLAP; pair with
+        S3 data lake (Redshift Spectrum) and Glue ETL.
+  \item \textbf{DAX in front of DynamoDB}: drop-in cache; microsecond reads;
+        no application code changes beyond pointing to DAX endpoint instead of DynamoDB.
+\end{itemize}
+\end{sapdepth}

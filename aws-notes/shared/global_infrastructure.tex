@@ -1,0 +1,90 @@
+%% ============================================================
+%% shared/global_infrastructure.tex
+%% AWS Global Infrastructure — SAA + SAP
+%% ============================================================
+
+\servicesection{AWS Global Infrastructure}{\saatag}{Regions, AZs, Edge locations}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Region} — geographically isolated area; contains 2+ AZs (typically 3).
+        Choose region based on: latency, data residency, service availability, pricing.
+  \item \textbf{Availability Zone (AZ)} — one or more discrete data centres with independent
+        power, cooling, networking. AZs in a region are interconnected via high-bandwidth,
+        low-latency private fibre.
+  \item \textbf{Edge Location / Point of Presence (PoP)} — used by CloudFront (CDN) and
+        Route~53 for caching and DNS resolution closer to end users. More locations than Regions.
+  \item \textbf{Local Zone} — extension of an AWS Region to metropolitan areas; for ultra-low
+        latency workloads (gaming, media, real-time).
+  \item \textbf{Wavelength Zone} — AWS infrastructure embedded in 5G carrier networks for
+        single-digit millisecond latency to mobile devices.
+  \item \textbf{Outposts} — AWS-managed rack/server hardware in your own data centre; extends
+        AWS APIs on-premises.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Resilience by Design}
+
+Design for failures at every level:
+\begin{itemize}
+  \item \textbf{AZ-resilient} — deploy across $\geq 2$ AZs; use Multi-AZ RDS, ALB, ASG spread.
+  \item \textbf{Region-resilient} — cross-region replication (S3, Aurora Global, DynamoDB Global Tables).
+  \item \textbf{Global} — Route~53 latency/health-check routing, CloudFront origin failover.
+\end{itemize}
+
+\begin{examtip}
+Questions about ``highest availability'' or ``survive an AZ failure'' always point to
+\textbf{Multi-AZ deployments}. Questions about ``survive a region failure'' require cross-region
+architectures — Aurora Global Database, S3 Cross-Region Replication, or Route~53 failover.
+\end{examtip}
+
+\subsection{Global Infrastructure Diagram}
+
+\begin{center}
+\begin{tikzpicture}[
+  region/.style={draw=awsdark, fill=awsdark!8, rounded corners=6pt,
+                 minimum width=5.2cm, minimum height=2.8cm, font=\small},
+  az/.style={draw=saacolor, fill=saacolor!10, rounded corners=3pt,
+             minimum width=1.4cm, minimum height=1.2cm, font=\tiny\bfseries, align=center},
+  edge/.style={draw=tipcolor, fill=tipcolor!10, rounded corners=3pt,
+               minimum width=1.6cm, minimum height=0.6cm, font=\tiny, align=center},
+  lbl/.style={font=\scriptsize\bfseries, color=awsdark}
+]
+
+%% Region box
+\node[region] (region) at (0,0) {};
+\node[lbl] at (0, 1.2) {AWS Region};
+
+%% Three AZs inside
+\node[az] (az1) at (-1.6, 0) {AZ\\1};
+\node[az] (az2) at (0,   0) {AZ\\2};
+\node[az] (az3) at (1.6, 0) {AZ\\3};
+
+%% Low-latency private links
+\draw[<->, thick, saacolor!60] (az1) -- (az2);
+\draw[<->, thick, saacolor!60] (az2) -- (az3);
+
+%% Edge location to the right
+\node[edge] (pop) at (4.8, 0) {Edge\\Location};
+\node[lbl]  at (4.8, 0.65) {\tiny CloudFront / Route~53};
+
+%% Internet arrow
+\draw[->, thick, gray] (2.8, 0) -- node[above, font=\tiny]{internet} (pop.west);
+
+\end{tikzpicture}
+\end{center}
+
+\begin{sapdepth}
+\textbf{Multi-Region patterns (SAP focus):}
+\begin{itemize}
+  \item \textbf{Active--Active}: traffic served from multiple regions simultaneously (Route~53
+        latency-based routing). Requires data synchronisation (DynamoDB Global Tables,
+        Aurora Global write forwarding).
+  \item \textbf{Active--Passive}: primary region handles all traffic; secondary region is
+        on standby (warm standby or pilot light). Promotes on failover.
+  \item \textbf{Data residency}: use AWS Organizations SCPs to \texttt{Deny} API calls
+        outside approved regions — enforces sovereignty requirements.
+  \item \textbf{AWS GovCloud}: isolated US regions for regulated workloads (FedRAMP, ITAR).
+        Separate account required; accessed via specific endpoints.
+\end{itemize}
+\end{sapdepth}

@@ -1,0 +1,113 @@
+%% ============================================================
+%% shared/services/database/dynamodb.tex
+%% Amazon DynamoDB — SAA + SAP
+%% ============================================================
+
+\servicesection{Amazon DynamoDB}{\bothtag}{Fully managed, serverless NoSQL key-value and document store}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Key structure}: Partition Key (required) + optional Sort Key.
+        Primary key = Partition Key alone, or Partition Key + Sort Key (composite).
+  \item \textbf{Capacity modes}:
+    \begin{itemize}
+      \item \emph{On-Demand}: no capacity planning; pay per request. Best for unpredictable traffic.
+      \item \emph{Provisioned}: specify Read Capacity Units (RCU) and Write Capacity Units (WCU).
+            Can add Auto Scaling; cheaper for predictable workloads.
+    \end{itemize}
+  \item \textbf{Performance}: single-digit millisecond latency at any scale.
+  \item \textbf{Item size}: max 400\,KB per item.
+  \item \textbf{Durability}: 99.999999999\% (11 nines); data replicated across 3 AZs.
+  \item \textbf{DynamoDB Accelerator (DAX)}: in-memory cache; microsecond read latency;
+        drop-in compatible with DynamoDB API.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{DynamoDB vs RDS --- When to Choose}
+
+\begin{comparebox}[title={DynamoDB vs RDS comparison}]
+\begin{tabular}{@{}p{3cm}p{4.5cm}p{4.5cm}@{}}
+\toprule
+\textbf{Factor} & \textbf{DynamoDB} & \textbf{RDS (Relational)} \\
+\midrule
+Data model   & Key-value / document (schema-less) & Tables with fixed schema, foreign keys \\
+Query style  & Get/put by key; limited scan; GSI for alternate access patterns &
+               Full SQL: joins, aggregations, complex queries \\
+Scale        & Horizontal; unlimited items & Vertical (instance size) + read replicas \\
+Latency      & Single-digit ms at any scale & Low ms; varies with query complexity \\
+Transactions & DynamoDB Transactions (ACID, same region) & Full ACID with SQL \\
+Operational  & Fully managed (serverless option) & Managed but you choose instance type \\
+Best for     & User sessions, shopping carts, gaming leaderboards, IoT events &
+               E-commerce orders, financial records, reports needing joins \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+If the question says ``\textbf{flexible schema}'', ``\textbf{millisecond latency at scale}'',
+``\textbf{serverless}'', or ``key-value'' --- DynamoDB.
+If the question says ``\textbf{complex joins}'', ``\textbf{relational data}'',
+``existing SQL application'', or ``ACID transactions with SQL'' --- RDS / Aurora.
+\end{examtip}
+
+\subsection{Secondary Indexes}
+
+\begin{itemize}
+  \item \textbf{Global Secondary Index (GSI)}: different partition key (and optional sort key)
+        than the table. Spans all partitions. Can be created/deleted at any time. Eventual consistency.
+  \item \textbf{Local Secondary Index (LSI)}: same partition key, different sort key.
+        Must be created at table creation. Supports strongly consistent reads.
+        Limited to 10\,GB per partition.
+\end{itemize}
+
+\subsection{DynamoDB Streams \& Triggers}
+
+\begin{itemize}
+  \item \textbf{DynamoDB Streams}: ordered stream of item-level changes (insert/modify/delete).
+        Retention: 24 hours. Consumed by Lambda (event source mapping) for real-time processing.
+  \item \textbf{Use cases}: audit logs, replication to other stores, triggering downstream workflows.
+\end{itemize}
+
+\subsection{DynamoDB Transactions}
+
+\begin{itemize}
+  \item \textbf{TransactWriteItems / TransactGetItems}: atomic, consistent, isolated, durable.
+        Up to 100 items or 4\,MB per transaction.
+  \item Useful for: banking (debit/credit atomically), inventory management, shopping cart checkout.
+\end{itemize}
+
+\subsection{Time To Live (TTL)}
+
+Define an attribute as TTL; DynamoDB auto-deletes expired items (within 48 hours, eventually).
+\textbf{Free}. Use for: session data, temporary tokens, logs, IoT data.
+
+\begin{saadepth}
+\textbf{SAA: DynamoDB in application patterns:}
+\begin{itemize}
+  \item \textbf{Session store}: stateless web servers store user sessions in DynamoDB;
+        TTL removes stale sessions automatically.
+  \item \textbf{Caching pattern}: use DAX in front of DynamoDB for read-heavy workloads
+        (product catalogue, leaderboards). DAX provides microsecond reads.
+  \item \textbf{Event-driven}: DynamoDB Streams $\rightarrow$ Lambda for change-data-capture
+        (CDC) --- fan-out to search indexes, caches, analytics.
+  \item \textbf{Serverless stack}: API Gateway $\rightarrow$ Lambda $\rightarrow$ DynamoDB;
+        no servers to manage, scales to zero, pay-per-request.
+\end{itemize}
+\end{saadepth}
+
+\begin{sapdepth}
+\textbf{SAP: DynamoDB enterprise patterns:}
+\begin{itemize}
+  \item \textbf{Global Tables}: multi-region, active-active replication; sub-second latency
+        worldwide; automatic conflict resolution (last-writer-wins). Requires on-demand capacity
+        or provisioned with auto-scaling.
+  \item \textbf{Point-in-Time Recovery (PITR)}: continuous backup; restore to any second in
+        the last 35 days. Enable for production tables.
+  \item \textbf{Export to S3}: export full table snapshots to S3 for analysis in Athena / Glue
+        without consuming read capacity.
+  \item \textbf{Capacity planning}: 1 RCU = 1 strongly consistent read / 2 eventually consistent
+        reads of items $\leq$4\,KB. 1 WCU = 1 write of items $\leq$1\,KB.
+        Hot partitions (``partition key anti-patterns'') limit throughput --- spread writes across
+        many partition keys (e.g.\ add random suffix / shard key).
+\end{itemize}
+\end{sapdepth}

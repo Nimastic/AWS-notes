@@ -1,0 +1,69 @@
+%% ============================================================
+%% shared/services/networking/vpc.tex
+%% Amazon VPC — Virtual Private Cloud
+%% Relevant to: SAA (core) + SAP (multi-VPC / multi-account networking)
+%% ============================================================
+
+\servicesection{Amazon VPC}{\bothtag}{%
+  Your isolated virtual network within AWS — the foundation of all networking.}
+
+\subsection{Core Components}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{CIDR block} — IPv4 /16 to /28; IPv6 /56 (optional)
+  \item \textbf{Subnets} — within one AZ; public (route to IGW) vs private
+  \item \textbf{Internet Gateway (IGW)} — allows public subnet $\leftrightarrow$ internet
+  \item \textbf{Route Tables} — one per subnet (or shared); most specific route wins
+  \item \textbf{NAT Gateway} — lets private subnets reach internet (outbound only).
+        Managed, \cost{charged per GB + per hour. AZ-specific; deploy one per AZ for HA.}
+  \item \textbf{NACL} — subnet-level, stateless firewall; rules evaluated in order
+  \item \textbf{Security Group} — instance-level, stateful; no explicit deny (only allow)
+\end{itemize}
+\end{keyfacts}
+
+\subsection{VPC Connectivity}
+
+%% TODO: VPC Peering (no transitive routing!), Transit Gateway,
+%%        VPN (Site-to-Site, Client), Direct Connect, VPC Endpoints
+
+\subsubsection{VPC Endpoints}
+%% TODO: Gateway endpoints (S3, DynamoDB — free, route table entry),
+%%        Interface endpoints (PrivateLink — ENI in subnet, per-AZ cost),
+%%        Endpoint policies (restrict which S3 buckets/actions)
+
+\subsubsection{VPC Peering}
+%% TODO: Non-transitive, same or cross-region, cross-account,
+%%        no overlapping CIDRs, no edge-to-edge routing
+
+\subsubsection{Transit Gateway (TGW)}
+%% TODO: Hub-and-spoke for many VPCs; supports VPN attachment,
+%%        inter-region peering, multicast; route tables per attachment
+
+\subsection{DNS in VPC}
+
+%% TODO: enableDnsSupport, enableDnsHostnames, Route 53 Resolver,
+%%        Resolver endpoints for hybrid DNS
+
+\begin{saadepth}
+%% TODO: Public vs private subnet design patterns (3-tier),
+%%        Bastion host vs SSM Session Manager, Flow Logs (CloudWatch / S3)
+\end{saadepth}
+
+\begin{sapdepth}
+%% TODO: Multi-account network design:
+%%        AWS Network Firewall, AWS PrivateLink at scale,
+%%        Centralised egress via TGW + NAT GW, Shared VPC (Resource Access Manager),
+%%        Centralised inspection with Gateway Load Balancer,
+%%        IPv6 considerations, Bring Your Own IP (BYOIP)
+\end{sapdepth}
+
+\begin{examtip}
+%% TODO: Add exam tips
+\end{examtip}
+
+\begin{gotcha}
+VPC Peering is \textbf{not transitive}: if VPC A peers with B, and B peers with C,
+A cannot reach C through B. Use \awsservice{Transit Gateway} for hub-and-spoke
+connectivity across many VPCs.
+\end{gotcha}

@@ -1,0 +1,132 @@
+%% ============================================================
+%% shared/services/networking/hybrid_connectivity.tex
+%% Hybrid Connectivity + VPC Peering, Transit Gateway, PrivateLink
+%% Classification: BOTH (VPC Peering = SAA; TGW + PrivateLink deep = SAP)
+%% ============================================================
+
+\servicesection{Hybrid \& VPC Connectivity}{\bothtag}{%
+  Connecting VPCs, on-premises networks, and services securely.}
+
+% ─── TikZ: VPC Peering (non-transitive) vs Transit Gateway ────
+\subsection{VPC Connectivity Options}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  vpc/.style={draw, circle, minimum size=1.2cm, font=\small\bfseries, align=center},
+  peer/.style={draw, dashed, thick, color=saacolor},
+  tgw/.style={draw, diamond, minimum width=1.4cm, minimum height=1.4cm,
+               fill=awsorange!20, draw=awsorange, font=\small\bfseries},
+  nope/.style={draw, very thick, color=warncolor, -}
+]
+
+%% ─── LEFT SIDE: VPC Peering (non-transitive) ───
+\node[font=\bfseries, color=awsdark] at (0, 3.2) {VPC Peering (non-transitive)};
+
+\node[vpc, fill=saacolor!15] (A) at (-1.5, 1.8) {A};
+\node[vpc, fill=saacolor!15] (B) at ( 1.5, 1.8) {B};
+\node[vpc, fill=saacolor!15] (C) at ( 0,   0.2) {C};
+
+\draw[peer] (A) -- (B) node[midway, above, font=\tiny] {peered};
+\draw[peer] (B) -- (C) node[midway, right, font=\tiny] {peered};
+
+%% X mark showing A cannot reach C via B
+\draw[nope, color=warncolor, dashed] (A) -- (C);
+\node[color=warncolor, font=\bfseries] at (-0.5, 1.0) {\large\texttimes};
+\node[font=\tiny, color=warncolor] at (-1.2, 0.6) {A $\not\to$ C};
+
+%% ─── RIGHT SIDE: Transit Gateway (transitive) ───
+\node[font=\bfseries, color=awsdark] at (7.5, 3.2) {Transit Gateway (hub-and-spoke)};
+
+\node[tgw] (TGW) at (7.5, 1.5) {TGW};
+
+\node[vpc, fill=sharedcolor!15] (D) at (5.5, 2.8) {A};
+\node[vpc, fill=sharedcolor!15] (E) at (9.5, 2.8) {B};
+\node[vpc, fill=sharedcolor!15] (F) at (7.5, 0.0) {C};
+\node[vpc, fill=sapcolor!15]    (G) at (5.5, 0.0) {On-Prem};
+
+\draw[->, thick, color=sharedcolor] (D) -- (TGW);
+\draw[->, thick, color=sharedcolor] (E) -- (TGW);
+\draw[->, thick, color=sharedcolor] (F) -- (TGW);
+\draw[->, thick, color=sapcolor]    (G) -- (TGW) node[midway, left, font=\tiny] {VPN/DX};
+
+\node[font=\tiny, color=sharedcolor] at (7.5, -0.8)
+  {All VPCs can reach each other via TGW};
+
+\end{tikzpicture}
+\caption{Left: VPC Peering is not transitive (A cannot reach C via B). Right: Transit Gateway enables any-to-any routing including on-premises.}
+\end{figure}
+
+\begin{comparebox}[title={VPC Connectivity Options}]
+\begin{tabular}{@{}p{3.5cm}p{5cm}p{3.5cm}@{}}
+\toprule
+\textbf{Method} & \textbf{Description} & \textbf{Key Constraint} \\
+\midrule
+VPC Peering          & Direct link between two VPCs; non-transitive         & No overlapping CIDRs; scales poorly at $>$20 VPCs \\
+Transit Gateway (TGW) & Hub-and-spoke; transitive; cross-account; cross-region & Per-attachment + per-GB cost \\
+AWS PrivateLink      & Expose a service to other VPCs without peering; traffic on AWS backbone & One-directional; consumer $\to$ provider \\
+VPC Endpoints (Gateway) & Free private route to S3 and DynamoDB via route table & S3 and DynamoDB only \\
+VPC Endpoints (Interface) & PrivateLink ENI in subnet; for most other AWS services & Per-AZ cost \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{gotcha}
+\textbf{VPC Peering is NOT transitive.} If A peers with B and B peers with C, A cannot reach C via B. This is the most frequently tested VPC concept. Use \awsservice{Transit Gateway} when you need any-to-any connectivity across many VPCs or on-premises networks.
+\end{gotcha}
+
+% ─────────────────────────────────────────
+\subsection{Hybrid Connectivity: Direct Connect \& VPN}
+
+\begin{comparebox}[title={Hybrid connectivity options}]
+\begin{tabular}{@{}p{3.5cm}p{5cm}p{3.2cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Description} & \textbf{Speed / Note} \\
+\midrule
+AWS Direct Connect     & Dedicated private connection from on-premises to AWS; consistent low latency    & 1, 10, 100 Gbps \\
+Site-to-Site VPN       & Encrypted IPsec tunnel over public internet; fast to provision                  & Up to 1.25 Gbps  \\
+Client VPN             & Managed OpenVPN for remote user access                                         & Per-user \\
+Direct Connect + VPN   & VPN over Direct Connect for encryption; combines privacy and encryption         & Production pattern \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Resilient hybrid connectivity pattern:} use \textbf{Direct Connect as primary} (consistent, low-latency) and \textbf{VPN as failover}. Direct Connect alone is not redundant --- provision two DX connections from different providers or pair with VPN. For maximum resilience: two DX connections in different locations.
+\end{examtip}
+
+\begin{saadepth}
+For SAA:
+\begin{itemize}
+  \item Direct Connect takes \textbf{weeks} to provision; VPN is \textbf{minutes}.
+  \item Use VPC \textbf{Gateway Endpoints} for S3/DynamoDB access (free, no data processing charge vs NAT Gateway).
+  \item Use VPC \textbf{Interface Endpoints} (PrivateLink) for other AWS services to avoid traffic leaving the VPC.
+\end{itemize}
+\end{saadepth}
+
+\begin{sapdepth}
+SAP networking depth:
+\begin{itemize}
+  \item \textbf{Transit Gateway + Direct Connect Gateway} --- connect a single TGW to multiple regions and on-premises over DX; use transit VIF (Virtual Interface).
+  \item \textbf{Shared VPC via AWS RAM} --- share subnets from a central network account to spoke accounts; centralised routing without peering mesh.
+  \item \textbf{Centralised egress via TGW + NAT Gateway} --- single NAT GW in a dedicated egress VPC; all spoke VPCs route through TGW to the NAT GW.
+  \item \textbf{AWS Network Firewall} --- deploy in centralised inspection VPC; route all ingress/egress through it via TGW and Gateway Load Balancer.
+  \item \textbf{Direct Connect SLA:} 99.9\% (1 connection) or 99.99\% (2 connections from different locations). Design for the SLA you need.
+\end{itemize}
+\end{sapdepth}
+
+% ─────────────────────────────────────────
+\subsection{Hybrid DNS with Route 53 Resolver}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Inbound Resolver Endpoint} --- allows on-premises DNS servers to resolve AWS private hosted zone records (on-prem $\to$ AWS DNS)
+  \item \textbf{Outbound Resolver Endpoint} --- allows VPC instances to forward DNS queries to on-premises DNS (AWS $\to$ on-prem DNS)
+  \item \textbf{Forwarding Rules} --- define which domains are forwarded to on-premises resolvers
+  \item Deploy at least two endpoints across AZs for high availability
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+On the SAP exam: hybrid DNS questions typically involve a company that has on-premises DNS (e.g., Active Directory) that needs to resolve AWS private hostnames (VPC DNS) and vice versa. The answer is always \textbf{Route 53 Inbound + Outbound Resolver Endpoints} with forwarding rules --- not a custom DNS on EC2.
+\end{examtip}

@@ -1,0 +1,128 @@
+%% ============================================================
+%% shared/services/migration/migration.tex
+%% The 7Rs, Migration Tools, Snow Family, DMS
+%% Classification: BOTH (SAA: Snow/DMS basics; SAP: 7Rs, MGN, full strategy)
+%% ============================================================
+
+\servicesection{Workload Migration \& Modernisation}{\bothtag}{%
+  Strategy selection (7Rs), tools, and database migration patterns.}
+
+% ─── TikZ: 7Rs Spectrum ───────────────────────────────────────
+\subsection{The 7Rs Migration Strategies}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  r/.style={draw, rounded corners=3pt, minimum width=2.8cm, minimum height=1.1cm,
+             font=\scriptsize\bfseries, align=center},
+  arrow/.style={->, thick, color=awsdark}
+]
+
+%% Effort axis (left low, right high)
+\draw[->, thick, color=sharedcolor] (-0.6,-0.8) -- (13.5,-0.8)
+  node[right, font=\small\bfseries, color=sharedcolor] {Cloud benefit / Long-term value};
+\draw[->, thick, color=warncolor, <-] (-0.6, 2.5) -- (13.5, 2.5)
+  node[left, font=\small\bfseries, color=warncolor] {Effort \& Cost};
+
+%% Seven boxes
+\node[r, fill=gray!15,      draw=gray]         (retire)   at (0.0,  0.8) {1. Retire\\\scriptsize Decommission};
+\node[r, fill=gray!15,      draw=gray]         (retain)   at (2.0,  0.8) {2. Retain\\\scriptsize Keep on-prem};
+\node[r, fill=saacolor!15,  draw=saacolor]     (rehost)   at (4.0,  0.8) {3. Rehost\\\scriptsize Lift \& Shift};
+\node[r, fill=saacolor!20,  draw=saacolor]     (relocate) at (6.0,  0.8) {4. Relocate\\\scriptsize (VMware)};
+\node[r, fill=sharedcolor!20, draw=sharedcolor](replat)   at (8.0,  0.8) {5. Replatform\\\scriptsize Lift \& Reshape};
+\node[r, fill=tipcolor!20,  draw=tipcolor]     (repurch)  at (10.0, 0.8) {6. Repurchase\\\scriptsize Drop \& Shop};
+\node[r, fill=sapcolor!20,  draw=sapcolor]     (refactor) at (12.0, 0.8) {7. Refactor\\\scriptsize Re-architect};
+
+%% Tool hints below
+\node[font=\tiny, color=saacolor] at (4.0, -0.1) {MGN};
+\node[font=\tiny, color=sharedcolor] at (8.0, -0.1) {Elastic Beanstalk, RDS};
+\node[font=\tiny, color=sapcolor]  at (12.0, -0.1) {Lambda, ECS, DynamoDB};
+
+\end{tikzpicture}
+\caption{The 7Rs migration strategies ordered by increasing effort and cloud benefit.}
+\end{figure}
+
+\begin{comparebox}[title={7Rs Quick Reference}]
+\begin{tabular}{@{}p{2.5cm}p{2.5cm}p{6cm}@{}}
+\toprule
+\textbf{Strategy} & \textbf{Also Known As} & \textbf{When to Use} \\
+\midrule
+Retire        & Remove             & App no longer needed; decommission \\
+Retain        & Keep               & Too risky, not worth migrating; revisit later \\
+Rehost        & Lift \& Shift      & Fast migration; no code changes; use MGN \\
+Relocate      & Lift \& Shift      & VMware on-prem to VMware Cloud on AWS \\
+Replatform    & Lift \& Reshape    & Minor optimisations (MySQL on EC2 $\to$ RDS); minimal code changes \\
+Repurchase    & Drop \& Shop       & Replace with SaaS (on-prem CRM $\to$ Salesforce) \\
+Refactor      & Re-architect       & Max cloud benefit; rethink as microservices/serverless; highest cost \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Rehost = fastest, lowest effort.} \textbf{Refactor = most expensive, best long-term benefit.} Do not overlook \textbf{Retire} and \textbf{Retain} --- they are valid answers when the question mentions ``budget constraints'' or ``app will be sunsetted within 6 months.''
+\end{examtip}
+
+% ─────────────────────────────────────────
+\subsection{Application Migration Tools}
+
+\begin{comparebox}[title={Migration tools}]
+\begin{tabular}{@{}p{4cm}p{8cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{Purpose} \\
+\midrule
+AWS Application Migration Service (MGN) & Lift-and-shift; continuous block-level replication from any source; minimal-downtime cutover \\
+AWS Migration Hub                        & Central tracking of migration progress across all tools \\
+AWS Application Discovery Service       & Collect on-premises server inventory; agentless or agent-based \\
+AWS DMS (Database Migration Service)    & Migrate databases; homo- and heterogeneous; CDC for minimal downtime \\
+AWS SCT (Schema Conversion Tool)        & Convert source schema to target for heterogeneous migrations \\
+AWS DataSync                            & High-speed incremental data transfer over network (NFS, SMB, S3, EFS) \\
+AWS Transfer Family                     & SFTP, FTP, FTPS, AS2 server transferring to S3 or EFS \\
+AWS Snow Family                         & Physical devices for offline bulk data transport \\
+S3 Transfer Acceleration                & Speed up S3 uploads using CloudFront edge locations \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsection{Snow Family}
+
+\begin{comparebox}[title={Snow Family devices}]
+\begin{tabular}{@{}p{3.5cm}p{5.5cm}p{3cm}@{}}
+\toprule
+\textbf{Device} & \textbf{Description} & \textbf{Capacity} \\
+\midrule
+Snowcone        & Smallest; portable; edge computing + data transfer; rugged        & 8--14 TB \\
+Snowball Edge   & Storage-Optimised (80 TB) or Compute-Optimised (ML at edge)       & 80 TB usable \\
+Snowmobile      & Semi-truck for exabyte-scale migrations; AWS manages logistics     & Up to 100 PB \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Rule of thumb:} if transferring the data over the network would take \emph{more than 1 week}, use Snow Family. For petabytes, use Snowmobile. For terabytes with edge compute needs, use Snowball Edge. For ongoing incremental sync (not bulk), use DataSync.
+\end{examtip}
+
+\subsection{Database Migration Patterns}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Homogeneous migration} (e.g.\ MySQL $\to$ RDS MySQL, Oracle $\to$ Oracle) --- use \awsservice{DMS} directly; no schema conversion needed
+  \item \textbf{Heterogeneous migration} (e.g.\ Oracle $\to$ Aurora PostgreSQL) --- use \awsservice{SCT} first to convert schema, then \awsservice{DMS} for data
+  \item \textbf{CDC (Change Data Capture)} --- DMS supports ongoing replication after initial load; minimises cutover downtime
+  \item \textbf{Large database offline load} --- use DMS + Snowball Edge for initial bulk load, then switch to CDC over the network for the delta
+\end{itemize}
+\end{keyfacts}
+
+\begin{saadepth}
+SAA: know Snow Family selection (Snowcone vs Snowball vs Snowmobile by size), DMS for database migrations, DataSync for file/NFS/SMB transfers.
+\end{saadepth}
+
+\begin{sapdepth}
+SAP: know the full 7Rs and when each applies. Understand wave planning (group workloads by dependencies into migration waves). Key modernisation patterns:
+\begin{itemize}
+  \item Oracle/SQL Server $\to$ Aurora (reduce licensing cost; Babelfish for SQL Server compat with Aurora PostgreSQL)
+  \item MySQL/PostgreSQL $\to$ Aurora (up to 5$\times$ MySQL, 3$\times$ PostgreSQL performance)
+  \item Self-managed Elasticsearch $\to$ Amazon OpenSearch Service
+  \item Data warehouse $\to$ Amazon Redshift (petabyte-scale analytics, columnar storage)
+  \item Strangler Fig pattern: gradually replace monolith functionality with microservices routing traffic via API Gateway or EventBridge
+\end{itemize}
+\end{sapdepth}

@@ -1,0 +1,201 @@
+%% ============================================================
+%% saa/main.tex  —  AWS SAA-C03 Notes
+%%
+%% Compile from this file's directory:
+%%   pdflatex main.tex
+%% Or from the aws-notes/ root:
+%%   pdflatex saa/main.tex
+%% ============================================================
+
+\documentclass[12pt, a4paper]{article}
+
+%% Define which exam this is (used in page header via \examlabel)
+\newcommand{\examlabel}{SAA-C03}
+
+\input{../preamble}   % shared preamble
+
+\title{
+  \vspace{-1cm}
+  {\color{awsorange}\rule{\linewidth}{3pt}}\\[8pt]
+  {\Huge\bfseries\color{awsdark} AWS Solutions Architect}\\[4pt]
+  {\large\color{saacolor} Associate (SAA-C03) — Study Notes}\\[6pt]
+  {\color{awsorange}\rule{\linewidth}{1pt}}
+  \vspace{-8pt}
+}
+\author{}
+\date{\small Last updated: \today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+%% ── How to use these notes ───────────────────────────────────
+\begin{tcolorbox}[colback=lightgray, colframe=awsdark, title=How to use these notes]
+\begin{itemize}
+  \item \saatag\ marks SAA-level content in the shared service files.
+  \item \saptag\ marks SAP-depth content you can skip for now (but skim — it builds context).
+  \item \bothtag\ marks material core to both exams.
+  \item Work through \textbf{Domain files} for exam structure; use \textbf{Service files} as reference.
+  \item Fill in \texttt{\%\% TODO} sections as you study each service.
+\end{itemize}
+\end{tcolorbox}
+
+\vspace{1em}
+\tableofcontents
+\newpage
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Exam Overview}
+%% ═══════════════════════════════════════════════════════════════
+
+\section{SAA-C03 at a Glance}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Questions:} 65 scored + 15 unscored (not labelled) = 80 total
+  \item \textbf{Duration:} 130 minutes
+  \item \textbf{Passing score:} 720 / 1000
+  \item \textbf{Format:} Multiple choice (1 correct) + Multiple response (2+ correct)
+  \item \textbf{Validity:} 3 years
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Domain Weightings}
+\begin{comparebox}[title={Content domains}]
+\begin{tabular}{@{}p{0.8cm}p{7cm}p{1.8cm}p{1.8cm}@{}}
+\toprule
+\textbf{\#} & \textbf{Name} & \textbf{Weight} & \textbf{$\sim$Questions} \\
+\midrule
+1 & Design Secure Architectures        & 30\% & $\sim$20 \\
+2 & Design Resilient Architectures     & 26\% & $\sim$17 \\
+3 & Design High-Performing Architectures & 24\% & $\sim$16 \\
+4 & Design Cost-Optimized Architectures & 20\% & $\sim$13 \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{gotcha}[title={Common Trap}]
+The 15 unscored (experimental) questions are \textbf{indistinguishable} from the 50 scored
+questions. Treat every question as scored --- never skip or rush through any.
+\end{gotcha}
+
+\subsection{Top-Frequency Services}
+
+\begin{comparebox}[title={Services that appear in almost every exam}]
+\begin{tabular}{@{}p{5cm}p{7cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Why it's high-frequency} \\
+\midrule
+EC2 (instances, ASG, placement)    & Core compute for most architectures \\[2pt]
+S3 (storage classes, lifecycle)    & Data storage, backups, static hosting \\[2pt]
+VPC (subnets, NACLs, endpoints)    & Network isolation and security \\[2pt]
+IAM (roles, policies, STS)         & Access control for everything \\[2pt]
+RDS / Aurora (Multi-AZ, replicas)  & Managed relational databases \\[2pt]
+Lambda (serverless, triggers)      & Event-driven compute \\[2pt]
+CloudFront (CDN, OAC)              & Edge caching and content delivery \\[2pt]
+Route 53 (routing policies)        & DNS, health checks, failover \\[2pt]
+ELB / ALB / NLB                    & Load balancing and traffic distribution \\[2pt]
+DynamoDB (DAX, Global Tables)      & NoSQL at any scale \\[2pt]
+KMS (encryption, key policies)     & Encryption key management \\[2pt]
+SQS / SNS (decoupling, fan-out)    & Messaging and decoupling \\[2pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\newpage
+\input{domains}   % SAA domain notes
+
+%% ═══════════════════════════════════════════════════════════════
+\part{AWS Foundations}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/global_infrastructure}
+\input{../shared/well_architected}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Compute}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/compute/ec2}
+\input{../shared/services/compute/lambda}
+\input{../shared/services/compute/auto_scaling_elb}
+\input{../shared/services/compute/containers}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Storage}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/storage/s3}
+\input{../shared/services/storage/efs_fsx}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Networking}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/networking/vpc}
+\input{../shared/services/networking/hybrid_connectivity}
+\input{../shared/services/networking/route53}
+\input{../shared/services/networking/cloudfront}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Security \& Identity}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/security/iam}
+\input{../shared/services/security/kms_shield_waf}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Databases}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/database/rds}
+\input{../shared/services/database/dynamodb}
+\input{../shared/services/database/purpose_built_databases}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Integration, Messaging \& Analytics}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/integration/messaging}
+\input{../shared/services/analytics/analytics}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Reliability \& DR}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/dr_strategies}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Migration}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/migration/migration}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Management \& Monitoring}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/management/cloudwatch_cfn}
+\input{../shared/services/management/cost_management}
+\input{../shared/services/management/organizations}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Architecture Patterns}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/architecture_patterns}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Quick Reference}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/quick_reference}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Practice Questions}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{questions}
+
+\end{document}

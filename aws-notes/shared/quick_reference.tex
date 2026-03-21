@@ -1,0 +1,459 @@
+%% ============================================================
+%% shared/quick_reference.tex
+%% Critical Numbers, Decision Trees, Exam-Day Tips
+%% Classification: BOTH (reference sheet for both exams)
+%% ============================================================
+
+\servicesection{Quick Reference \& Decision Trees}{\bothtag}{%
+  Critical numbers, service selection rules, and exam-day strategy.}
+
+\subsection{Critical Numbers to Memorise}
+
+\begin{comparebox}[title={Limits and numbers the exam loves to test}]
+\begin{tabular}{@{}p{6.5cm}p{5cm}@{}}
+\toprule
+\textbf{Item} & \textbf{Value} \\
+\midrule
+S3 single PUT max size         & 5 GB \\
+S3 object max size (multipart) & 5 TB \\
+S3 durability                  & 99.999\,999\,999\% (11 nines) \\
+S3 Standard availability       & 99.99\% \\
+SQS max message size           & 256 KB \\
+SQS max retention period       & 14 days \\
+SQS visibility timeout max     & 12 hours \\
+Lambda max execution time      & 15 minutes \\
+Lambda max memory              & 10,240 MB (10 GB) \\
+Lambda max deployment (zip)    & 50 MB (250 MB unzipped) \\
+API Gateway max payload        & 10 MB \\
+DynamoDB item max size         & 400 KB \\
+EBS gp3 max volume             & 16 TiB \\
+EBS io2 Block Express max IOPS & 256,000 IOPS \\
+RDS max storage                & 64 TiB (gp2/gp3) \\
+CloudFront max file size       & 20 GB \\
+Route 53 TTL minimum           & 1 second \\
+Multipart upload threshold     & Recommended above 100 MB; required above 5 GB \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+% ─────────────────────────────────────────
+\subsection{Service Selection Decision Trees}
+
+\subsubsection{Which Messaging / Queue Service?}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Decouple application tiers, buffer bursts $\to$ \textbf{SQS Standard}
+  \item Ordered messages, no duplicates (financial transactions) $\to$ \textbf{SQS FIFO}
+  \item Fan-out to multiple consumers simultaneously $\to$ \textbf{SNS}
+  \item Fan-out to multiple SQS queues (each processes independently) $\to$ \textbf{SNS $\to$ SQS}
+  \item Rule-based routing, SaaS integration, event replay $\to$ \textbf{EventBridge}
+  \item Migrate existing ActiveMQ / RabbitMQ $\to$ \textbf{Amazon MQ}
+  \item Real-time ordered streaming, replay, multiple consumers $\to$ \textbf{Kinesis Data Streams}
+  \item Complex workflow with retries, error handling, branching $\to$ \textbf{Step Functions}
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Which Load Balancer?}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item HTTP/HTTPS; path-based or host-based routing; WebSocket $\to$ \textbf{ALB}
+  \item TCP/UDP; static IP required; ultra-low latency; gaming $\to$ \textbf{NLB}
+  \item Third-party network appliances (firewalls, IDS); bump-in-the-wire $\to$ \textbf{GLB}
+  \item Legacy (EC2-Classic); avoid for new projects $\to$ \textbf{CLB}
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Which Storage Service?}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Objects, backups, web assets, user uploads $\to$ \textbf{S3}
+  \item OS disk, database data volume (single EC2) $\to$ \textbf{EBS}
+  \item Shared POSIX file system across Linux EC2 instances $\to$ \textbf{EFS}
+  \item Shared SMB file system for Windows workloads $\to$ \textbf{FSx for Windows File Server}
+  \item HPC / ML high-throughput parallel FS $\to$ \textbf{FSx for Lustre}
+  \item Lift-and-shift NetApp (NFS, SMB, iSCSI) $\to$ \textbf{FSx for NetApp ONTAP}
+  \item Archive / cold, infrequent restore (hours) $\to$ \textbf{S3 Glacier Deep Archive}
+  \item Offline bulk data transfer (terabytes/petabytes) $\to$ \textbf{Snow Family}
+  \item Hybrid: on-prem accessing AWS storage $\to$ \textbf{AWS Storage Gateway}
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Which Database?}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Relational, OLTP, SQL, complex queries $\to$ \textbf{RDS / Aurora}
+  \item Global, multi-region relational with near-zero RPO/RTO $\to$ \textbf{Aurora Global Database}
+  \item Key-value / document, any scale, millisecond latency $\to$ \textbf{DynamoDB}
+  \item Multi-region active-active K/V $\to$ \textbf{DynamoDB Global Tables}
+  \item OLAP, data warehousing, petabyte analytics $\to$ \textbf{Redshift}
+  \item In-memory sessions, caching, leaderboards $\to$ \textbf{ElastiCache Redis}
+  \item Graph (social networks, fraud detection) $\to$ \textbf{Neptune}
+  \item Search, log analytics, full-text search $\to$ \textbf{OpenSearch Service}
+  \item MongoDB-compatible document store $\to$ \textbf{DocumentDB}
+  \item IoT / time-series metrics $\to$ \textbf{Timestream}
+  \item Durable in-memory Redis-compatible $\to$ \textbf{MemoryDB for Redis}
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{CloudFront vs Global Accelerator}
+
+\begin{comparebox}[title={CloudFront vs Global Accelerator}]
+\begin{tabular}{@{}p{3.5cm}p{4.5cm}p{4cm}@{}}
+\toprule
+ & \textbf{CloudFront} & \textbf{Global Accelerator} \\
+\midrule
+Protocol    & HTTP/HTTPS (Layer 7)           & TCP/UDP (Layer 4) \\
+Caching     & Yes --- content cached at edge & No caching \\
+Best for    & Static/dynamic web content, CDN & Non-HTTP apps, gaming, IoT, consistent performance \\
+IP type     & Dynamic (DNS)                  & Static Anycast IP \\
+Failover    & Origin failover                & 30-second endpoint failover \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+% ─────────────────────────────────────────
+\subsection{Exam-Day Strategy}
+
+\begin{examtip}[title={[!] SAP-C02 Exam Tips}]
+\begin{enumerate}
+  \item \textbf{Read the question twice} --- SAP questions are long; identify what is \emph{actually} being asked (RTO? cost? operational overhead?)
+  \item \textbf{Look for constraints} --- RTO/RPO numbers, budget limits, existing investments, compliance requirements
+  \item \textbf{Eliminate obviously wrong answers first} --- usually 1--2 can be ruled out immediately (single AZ, storing creds on EC2, etc.)
+  \item \textbf{Well-Architected lens} --- when in doubt, ask which answer best aligns with AWS best practices
+  \item \textbf{Managed $>$ Self-managed} --- AWS exam answers favour managed services over DIY on EC2
+  \item \textbf{Multi-AZ is table stakes} --- any answer placing a critical workload in a single AZ is almost certainly wrong
+  \item \textbf{IAM roles over access keys} --- always prefer roles for AWS-to-AWS access
+  \item \textbf{``Least operational overhead''} --- often points to serverless or fully managed services (Fargate over EC2, Aurora over RDS on EC2)
+  \item \textbf{``Most cost-effective''} --- changes the answer; Spot for fault-tolerant batch, Savings Plans for steady-state, S3 Intelligent-Tiering for unknown access patterns
+  \item \textbf{Time management} --- approximately 2.5 minutes per question; flag hard ones and return
+\end{enumerate}
+\end{examtip}
+
+% ─────────────────────────────────────────
+\subsection{Categorised Service Cheat Sheet}
+
+\subsubsection{Compute}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{EC2 On-Demand} --- short-term, unpredictable; development/test; never choose for cost-optimisation questions.
+  \item \textbf{EC2 Reserved / Savings Plans} --- steady-state, predictable workloads (1 or 3 year); up to 72\% savings.
+  \item \textbf{Spot Instances} --- fault-tolerant batch, flexible start/stop; up to 90\% savings; 2-min interruption warning; never for prod DBs.
+  \item \textbf{Dedicated Host} --- BYOL licensing; physical server isolation; compliance requirements.
+  \item \textbf{Lambda} --- event-driven, short duration ($\leq$15 min), no idle cost; pairs with SQS/SNS/API Gateway.
+  \item \textbf{Fargate} --- serverless containers; no cluster management; pay per task; variable/bursty loads.
+  \item \textbf{Auto Scaling} --- Target Tracking = simplest; Step = fine-grained; Scheduled = known patterns; Predictive = ML-based.
+  \item \textbf{Elastic Beanstalk} --- PaaS; developer uploads code; AWS manages EC2/ALB/ASG/RDS; minimal overhead.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Storage}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{S3 Standard} --- frequent access; 11 nines durability; most expensive storage class.
+  \item \textbf{S3 Standard-IA} --- infrequent access; same durability; lower storage cost, per-retrieval fee.
+  \item \textbf{S3 Intelligent-Tiering} --- unknown access patterns; automatic tiering; no retrieval fee for monitored tier.
+  \item \textbf{S3 Glacier Instant Retrieval} --- archive accessed once a quarter; millisecond retrieval.
+  \item \textbf{S3 Glacier Flexible Retrieval} --- minutes to hours retrieval; bulk cheapest.
+  \item \textbf{S3 Glacier Deep Archive} --- lowest cost; 12-hour standard retrieval; long-term compliance archive.
+  \item \textbf{EBS gp3} --- general purpose SSD; independent IOPS/throughput tuning; prefer over gp2.
+  \item \textbf{EBS io2} --- highest IOPS (256K); SAP HANA; Multi-Attach (single AZ only).
+  \item \textbf{EBS st1/sc1} --- HDD; sequential throughput (st1) or cold/infrequent (sc1); \emph{never} for boot volumes.
+  \item \textbf{Instance Store} --- ephemeral; highest I/O; data lost on stop/terminate; use for temp data, buffers.
+  \item \textbf{EFS} --- NFS; Linux only; multi-AZ; elastic capacity; shared across many EC2 instances/Lambda.
+  \item \textbf{FSx for Windows} --- SMB; Active Directory integration; Windows workloads.
+  \item \textbf{FSx for Lustre} --- HPC/ML; sub-millisecond; integrates with S3 for burst-out data lake training.
+  \item \textbf{Storage Gateway File mode} --- NFS/SMB on-prem; objects land in S3; good for gradual migration.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Databases}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{RDS Multi-AZ} --- synchronous standby; automatic failover ($\sim$60--120 s); NOT a read replica.
+  \item \textbf{RDS Read Replicas} --- asynchronous; up to 15 replicas (Aurora); used for read scaling, not HA.
+  \item \textbf{Aurora} --- 5$\times$ MySQL / 3$\times$ PostgreSQL performance; 6-way replication across 3 AZs; storage auto-scales.
+  \item \textbf{Aurora Global Database} --- 1 primary + up to 5 secondary regions; RPO $<$1 s; RTO $<$1 min; cross-region DR.
+  \item \textbf{Aurora Serverless v2} --- auto-scales capacity in fractions of an ACU; ideal for variable/dev workloads.
+  \item \textbf{DynamoDB} --- key-value/document; single-digit ms at any scale; serverless; TTL; streams.
+  \item \textbf{DynamoDB Global Tables} --- multi-region active-active; conflict resolution = last-write-wins.
+  \item \textbf{DAX} --- DynamoDB Accelerator; in-memory cache; microsecond reads; drop-in (just change endpoint).
+  \item \textbf{ElastiCache Redis} --- sub-ms; persistence; pub/sub; sorted sets; sessions; leaderboards.
+  \item \textbf{Redshift} --- columnar OLAP; petabyte-scale; Redshift Spectrum queries S3 without loading.
+  \item \textbf{Neptune} --- graph; social networks, fraud detection, recommendation engines.
+  \item \textbf{Timestream} --- time-series; IoT metrics; built-in analytics.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Networking}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{ALB} --- Layer 7; path-based / host-based / header routing; WebSocket; Lambda targets; WAF integration.
+  \item \textbf{NLB} --- Layer 4 TCP/UDP; static IP (Elastic IP); ultra-low latency; TLS termination; PrivateLink.
+  \item \textbf{GWLB} --- Layer 3; bump-in-the-wire for 3rd-party virtual appliances (firewalls, IDS/IPS).
+  \item \textbf{CloudFront} --- CDN; Layer 7 caching; OAC for S3 private content; Lambda@Edge / CloudFront Functions at edge.
+  \item \textbf{Global Accelerator} --- static Anycast IPs; Layer 4; no caching; consistent global performance; 30 s failover.
+  \item \textbf{Route 53 Failover} --- active-passive; health checks required; use with secondary S3 static site.
+  \item \textbf{Route 53 Latency} --- routes to region with lowest measured latency for the user.
+  \item \textbf{Route 53 Geolocation} --- routes based on where the user is; default record for no match.
+  \item \textbf{Route 53 Weighted} --- A/B testing; gradual traffic shifting; set weight 0 to stop traffic.
+  \item \textbf{VPC Gateway Endpoint} --- free; route S3 and DynamoDB traffic within VPC; eliminates NAT Gateway charges.
+  \item \textbf{VPC Interface Endpoint (PrivateLink)} --- private connectivity to other AWS services / SaaS; ENI in subnet.
+  \item \textbf{Transit Gateway} --- hub-and-spoke; connect many VPCs + on-prem; shared across accounts.
+  \item \textbf{Direct Connect} --- dedicated private connection; consistent bandwidth; lower egress pricing; use with VPN for redundancy.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Security}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{IAM Roles} --- preferred over long-term access keys; use for EC2, Lambda, cross-account, federation.
+  \item \textbf{KMS} --- envelope encryption; CMK never leaves KMS; use \texttt{GenerateDataKey} for client-side encryption.
+  \item \textbf{SSE-S3} --- AWS manages keys; free; least admin overhead for S3 encryption.
+  \item \textbf{SSE-KMS} --- customer controls key policy; audit via CloudTrail; required for compliance.
+  \item \textbf{SSE-C} --- customer provides key per request; AWS does not store the key.
+  \item \textbf{Secrets Manager} --- auto-rotation; integrates with RDS/Redshift/DocumentDB natively; prefer for DB creds.
+  \item \textbf{Parameter Store} --- free tier (Standard); store config, non-sensitive params; SecureString uses KMS.
+  \item \textbf{GuardDuty} --- threat detection using ML; analyses VPC Flow Logs, DNS, CloudTrail; no agents needed.
+  \item \textbf{Inspector} --- vulnerability scanning; EC2 and container images; CVE/CIS benchmarks; integrates with ECR.
+  \item \textbf{Macie} --- PII/sensitive data discovery in S3; ML-based; privacy compliance.
+  \item \textbf{Shield Standard} --- free; automatic L3/L4 DDoS protection for all AWS customers.
+  \item \textbf{Shield Advanced} --- paid; L7 protection; WAF integration; DDoS cost protection; 24/7 SRT access.
+  \item \textbf{WAF} --- web ACL; L7 rules (IP, geo, rate, SQL injection, XSS); attaches to ALB/CloudFront/API GW.
+  \item \textbf{Security Groups} --- stateful; instance level; allow rules only.
+  \item \textbf{NACLs} --- stateless; subnet level; allow and deny rules; numbered rule order.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{High Availability \& Disaster Recovery}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Multi-AZ} --- synchronous replication; automatic failover; HA within a region; not a read-scaling solution.
+  \item \textbf{Multi-Region} --- active-passive (failover) or active-active (Global Tables, Aurora Global); cross-region DR.
+  \item \textbf{Pilot Light} --- minimal version always running; scale up on disaster; RTO: tens of minutes.
+  \item \textbf{Warm Standby} --- reduced-capacity version always running; scale to full on disaster; RTO: minutes.
+  \item \textbf{Multi-site Active/Active} --- full capacity in both regions; near-zero RTO/RPO; highest cost.
+  \item \textbf{Backup \& Restore} --- cheapest; highest RTO/RPO (hours); restore from S3/Glacier; fine for non-critical.
+  \item \textbf{S3 CRR} --- cross-region replication; requires versioning on both buckets; not retroactive; same-account or cross-account.
+  \item \textbf{RDS Automated Backups} --- daily snapshot + transaction logs; restore to any point in retention window (up to 35 days).
+  \item \textbf{RDS Snapshot} --- manual; not subject to retention period; can copy across regions for DR.
+  \item \textbf{SQS as buffer} --- decouple components; absorb traffic spikes; prevent cascade failures; standard ($\infty$ scale) or FIFO (3K TPS).
+  \item \textbf{Health checks} --- Route 53 health checks trigger DNS failover; ALB health checks deregister unhealthy targets.
+\end{itemize}
+\end{keyfacts}
+
+% ─────────────────────────────────────────
+\subsection{The Four Questions Framework}
+
+\begin{examtip}[title={[!] Answering Strategy --- ask these four questions}]
+Before selecting an answer, mentally run through these four questions in order:
+
+\begin{enumerate}
+  \item \textbf{What is the actual requirement?}
+        Read the scenario once for the story, then once more to extract the \emph{hard constraint}:
+        is it RTO, RPO, cost, latency, compliance, or operational overhead?
+
+  \item \textbf{What can I eliminate immediately?}
+        Look for classic wrong-answer patterns: single AZ for critical workloads,
+        long-term access keys on EC2, On-Demand for cost questions, manual processes
+        when automation is available, self-managed when a managed service exists.
+
+  \item \textbf{Which remaining answer is the most ``AWS-native'' solution?}
+        AWS exam answers reward managed services, IAM roles over keys, encryption by default,
+        and decoupled/serverless architectures. When two answers both seem correct,
+        the more managed / less operationally complex one is usually right.
+
+  \item \textbf{Does it satisfy the constraint from question 1?}
+        Double-check: if the question said ``lowest cost,'' confirm your choice is not
+        over-engineered. If it said ``near-zero RTO,'' confirm it is not Backup \& Restore.
+\end{enumerate}
+\end{examtip}
+
+% ─────────────────────────────────────────
+\subsection{High-Frequency Scenario Pattern Tables}
+
+\subsubsection{``Without Internet'' Patterns}
+
+\begin{comparebox}[title={Private connectivity scenarios}]
+\begin{tabular}{@{}p{6cm}p{5.5cm}@{}}
+\toprule
+\textbf{Scenario} & \textbf{Answer} \\
+\midrule
+EC2 must access S3 without internet          & S3 Gateway VPC Endpoint (free) \\[3pt]
+EC2 must access DynamoDB without internet    & DynamoDB Gateway VPC Endpoint (free) \\[3pt]
+Lambda / ECS in VPC needs S3 / DynamoDB     & Gateway VPC Endpoint \\[3pt]
+Private subnet EC2 needs outbound internet   & NAT Gateway in public subnet + route table entry \\[3pt]
+VPC needs private access to other AWS service (non S3/DDB) & Interface Endpoint (PrivateLink) \\[3pt]
+On-prem server needs to call an AWS service privately & Interface Endpoint via Direct Connect / VPN \\[3pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsubsection{HA \& DR Patterns}
+
+\begin{comparebox}[title={High availability and disaster recovery}]
+\begin{tabular}{@{}p{6cm}p{5.5cm}@{}}
+\toprule
+\textbf{Scenario} & \textbf{Answer} \\
+\midrule
+Survive single AZ failure                       & Multi-AZ deployment (ALB + ASG + RDS Multi-AZ) \\[3pt]
+Fast automatic DB failover, same region         & RDS Multi-AZ ($\sim$60 s) or Aurora ($<$30 s) \\[3pt]
+DB readable from any global region              & Aurora Global Database \\[3pt]
+Active-active key-value globally                & DynamoDB Global Tables \\[3pt]
+Lowest RPO/RTO across regions (any app)         & Active-active + Route 53 health checks \\[3pt]
+Cost-sensitive DR, hours RTO acceptable         & Backup \& Restore to S3 + CloudFormation redeploy \\[3pt]
+Minimal always-on cost DR (core DB only)        & Pilot Light (scale out on event) \\[3pt]
+Faster failover but reduced capacity ready      & Warm Standby (scale up on event) \\[3pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsubsection{Performance \& Caching Patterns}
+
+\begin{comparebox}[title={Performance and caching}]
+\begin{tabular}{@{}p{6cm}p{5.5cm}@{}}
+\toprule
+\textbf{Scenario} & \textbf{Answer} \\
+\midrule
+Read-heavy relational DB; reduce load          & ElastiCache Redis (cache-aside pattern) \\[3pt]
+DynamoDB hot partitions / high read latency    & Enable DAX (same API, microsecond reads) \\[3pt]
+RDS read scaling                               & Read Replicas (up to 5 RDS, 15 Aurora) \\[3pt]
+Static content for global users                & S3 + CloudFront (OAC) \\[3pt]
+Dynamic content globally with fixed IP         & Global Accelerator (Anycast, Layer 4) \\[3pt]
+EC2 low-latency inter-node communication       & Cluster Placement Group \\[3pt]
+Lambda cold starts in VPC                      & Provisioned Concurrency \\[3pt]
+Containers, no cluster management              & ECS Fargate \\[3pt]
+HPC/ML storage, sub-ms parallel FS             & FSx for Lustre (integrate with S3) \\[3pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsubsection{Cost Optimisation Patterns}
+
+\begin{comparebox}[title={Cost optimisation}]
+\begin{tabular}{@{}p{6cm}p{5.5cm}@{}}
+\toprule
+\textbf{Scenario} & \textbf{Answer} \\
+\midrule
+Steady-state predictable EC2 workload          & Reserved Instances or Compute Savings Plans \\[3pt]
+Fault-tolerant batch / big data processing     & Spot Instances (up to 90\% savings) \\[3pt]
+Minimum 2 always-on + burst capacity           & 2 Reserved + Spot for burst \\[3pt]
+S3 data accessed infrequently but occasionally & S3 Standard-IA (retrieval fee applies) \\[3pt]
+S3 access pattern unknown / changing           & S3 Intelligent-Tiering (auto-tier, no retrieval fee) \\[3pt]
+Long-term compliance archive ($\geq$10 years)   & S3 Glacier Deep Archive \\[3pt]
+Variable workload, no idle compute charge      & Lambda / Aurora Serverless / DynamoDB On-Demand \\[3pt]
+Avoid cross-AZ data transfer charges           & Use private IP addresses; same-region same-AZ \\[3pt]
+Large offline data transfer to AWS             & Snowball Edge ($<$10 PB); Snowmobile ($\geq$100 PB) \\[3pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+% ─────────────────────────────────────────
+\subsection{One-Liner Rapid-Fire Rules}
+
+\subsubsection{Security}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item IAM role on EC2/Lambda $\Rightarrow$ \textbf{never} embed access keys in code or config.
+  \item Explicit Deny \textbf{always wins} in IAM policy evaluation --- no Allow overrides it.
+  \item Access S3 from VPC $\Rightarrow$ \textbf{Gateway endpoint}, not NAT Gateway.
+  \item Auto-rotate database credentials $\Rightarrow$ \textbf{Secrets Manager}, not Parameter Store.
+  \item DDoS at Layer 7 $\Rightarrow$ \textbf{WAF + Shield Advanced} on CloudFront or ALB.
+  \item Encrypt existing unencrypted EBS/RDS $\Rightarrow$ \textbf{snapshot $\to$ copy with encryption $\to$ restore}.
+  \item Immutable S3 archive (no one can delete) $\Rightarrow$ \textbf{Object Lock Compliance mode}.
+  \item Enforce guardrails across all accounts $\Rightarrow$ \textbf{SCPs via AWS Organizations}.
+  \item Security Group = \textbf{stateful} (return traffic auto-allowed); NACL = \textbf{stateless} (both directions explicit).
+  \item Cross-account access $\Rightarrow$ IAM role + STS AssumeRole; never share credentials.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Resilience}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item RDS Multi-AZ $\Rightarrow$ \textbf{failover only}, not for read scaling.
+  \item RDS Read Replica $\Rightarrow$ \textbf{reads / reporting}, not HA failover.
+  \item Aurora automatic failover $<$30 s; RDS Multi-AZ $\approx$60 s.
+  \item NLB $\Rightarrow$ static IP / TCP-UDP; ALB $\Rightarrow$ path routing / WebSockets.
+  \item SQS DLQ $\Rightarrow$ handle failed / poison-pill messages after \texttt{maxReceiveCount}.
+  \item Decouple and buffer traffic bursts $\Rightarrow$ \textbf{SQS Standard}.
+  \item Fan-out simultaneously to multiple services $\Rightarrow$ \textbf{SNS $\to$ multiple SQS queues}.
+  \item Strict order + exactly-once processing $\Rightarrow$ \textbf{SQS FIFO}.
+  \item Complex stateful workflow with retries $\Rightarrow$ \textbf{Step Functions}.
+  \item Route 53 failover requires a \textbf{health check} on the primary record.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Performance}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item HPC inter-node low latency $\Rightarrow$ \textbf{Cluster Placement Group} (same rack).
+  \item gp3 = default EBS (tunable IOPS/throughput); io2 = highest IOPS (256K).
+  \item DynamoDB sub-millisecond reads $\Rightarrow$ \textbf{DAX} in front (drop-in, same API).
+  \item ElastiCache \textbf{Redis} $\Rightarrow$ sorted sets, pub/sub, persistence, HA, sessions.
+  \item ElastiCache \textbf{Memcached} $\Rightarrow$ simple K/V, multi-threaded, horizontal scale, no persistence.
+  \item Lambda cold start in VPC $\Rightarrow$ \textbf{Provisioned Concurrency} pre-warms execution environments.
+  \item Containers, no cluster management $\Rightarrow$ \textbf{ECS Fargate}; need Kubernetes $\Rightarrow$ \textbf{EKS}.
+  \item Global static/dynamic content $\Rightarrow$ \textbf{CloudFront} + OAC.
+  \item Non-HTTP global + fixed IP $\Rightarrow$ \textbf{Global Accelerator} (Anycast IPs).
+  \item Route 53 Latency routing $\Rightarrow$ lowest measured latency for the end user.
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Cost}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Steady workload $\Rightarrow$ \textbf{Reserved Instances} (standard) or \textbf{Compute Savings Plans}.
+  \item Fault-tolerant batch $\Rightarrow$ \textbf{Spot Instances} (up to 90\% off; 2-min warning).
+  \item Unknown S3 access pattern $\Rightarrow$ \textbf{S3 Intelligent-Tiering} (no retrieval fee).
+  \item Long archive ($\geq$180 days) $\Rightarrow$ \textbf{S3 Glacier Deep Archive} ($\approx\$0.001$/GB/month).
+  \item No idle compute cost $\Rightarrow$ \textbf{Lambda} / \textbf{DynamoDB On-Demand} / \textbf{Aurora Serverless v2}.
+  \item Cross-AZ free $\Rightarrow$ use \textbf{private IPs} within the same region (public/EIP = charged).
+  \item Large offline transfer $\Rightarrow$ \textbf{Snowball Edge} ($<$10 PB); \textbf{Snowmobile} ($\geq$100 PB).
+  \item DB migration minimal downtime $\Rightarrow$ \textbf{DMS + CDC}.
+  \item On-prem file server, capacity full $\Rightarrow$ \textbf{Storage Gateway File} (NFS/SMB $\to$ S3).
+  \item Compliance evidence $\Rightarrow$ \textbf{CloudTrail} (API logs) + \textbf{Config} (resource config) + \textbf{GuardDuty} (threat detection).
+\end{itemize}
+\end{keyfacts}
+
+% ─────────────────────────────────────────
+\subsection{Memory Hooks --- One-Word Mnemonics}
+
+\begin{comparebox}[title={Single-word memory hooks for exam day}]
+\begin{tabular}{@{}p{4.5cm}p{2.5cm}p{5cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Hook} & \textbf{What it does in one phrase} \\
+\midrule
+Amazon CloudWatch     & OBSERVE    & Metrics, alarms, logs, dashboards \\[3pt]
+AWS CloudTrail        & AUDIT      & API call history --- who did what, when, from where \\[3pt]
+AWS Config            & RECORD     & Config changes and compliance state over time \\[3pt]
+Amazon GuardDuty      & DETECT     & ML threat detection on CloudTrail / Flow Logs / DNS \\[3pt]
+Amazon Inspector      & FIND VULNS & CVEs in EC2, containers, Lambda \\[3pt]
+Amazon Macie          & FIND PII   & Sensitive data discovery in S3 \\[3pt]
+AWS Security Hub      & CENTRALIZE & Aggregates GuardDuty, Inspector, Macie findings \\[3pt]
+Amazon Detective      & INVESTIGATE & Drill into GuardDuty events; visualise relationships \\[3pt]
+Amazon Athena         & SQL on S3  & Serverless query; pay per query; no ETL \\[3pt]
+AWS Glue              & ETL        & Serverless transform + Data Catalog \\[3pt]
+Amazon Redshift       & WAREHOUSE  & OLAP, columnar, petabyte-scale analytics \\[3pt]
+Amazon Kinesis DS     & STREAM     & Real-time ingest, ordered, replay \\[3pt]
+Amazon Data Firehose  & DELIVER    & Load streams to S3/Redshift/OpenSearch \\[3pt]
+Amazon CloudFront     & CDN        & Edge caching, HTTP/HTTPS content delivery \\[3pt]
+Global Accelerator    & GLOBAL IP  & TCP/UDP, fixed anycast IPs, non-HTTP global \\[3pt]
+Transit Gateway       & HUB ROUTER & Connects many VPCs + on-prem \\[3pt]
+AWS Direct Connect    & PRIVATE LINK & Dedicated line to AWS; not over internet \\[3pt]
+AWS X-Ray             & TRACE      & Distributed tracing; find performance bottlenecks \\[3pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}

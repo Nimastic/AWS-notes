@@ -1,0 +1,168 @@
+%% ============================================================
+%% shared/services/storage/efs_fsx.tex
+%% EFS, FSx variants, EBS, Storage Gateway — SAA + SAP
+%% ============================================================
+
+\servicesection{Shared File Storage \& Storage Gateway}{\bothtag}{EFS, FSx, Storage Gateway --- file systems and hybrid storage}
+
+\subsection{Storage Service Selection}
+
+\begin{comparebox}[title={AWS storage service comparison}]
+\begin{tabular}{@{}p{3.5cm}p{3.5cm}p{4.5cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Type / Protocol} & \textbf{Use case / Choose when\ldots} \\
+\midrule
+\textbf{S3}               & Object store & Web data, backups, data lake, static files \\[3pt]
+\textbf{EBS}              & Block (single-EC2) & OS disk, databases, high-IOPS single instance \\[3pt]
+\textbf{EFS}              & NFS shared file (Linux) & Shared access from multiple EC2 / Lambda / ECS \\[3pt]
+\textbf{FSx for Windows}  & SMB (Windows) & Windows workloads, Active Directory integration \\[3pt]
+\textbf{FSx for Lustre}   & Parallel FS (POSIX) & HPC, ML training, burst compute from S3 \\[3pt]
+\textbf{FSx for NetApp}   & NFS, SMB, iSCSI & Lift-and-shift NetApp ONTAP workloads \\[3pt]
+\textbf{FSx for OpenZFS}  & NFS (ZFS) & Linux apps using ZFS features; snapshot-heavy \\[3pt]
+\textbf{Storage Gateway}  & File / Volume / Tape & Hybrid on-prem to AWS; extend on-prem storage \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{``Multiple EC2 instances need shared access to the same files''} $\Rightarrow$ \textbf{EFS} (Linux) or \textbf{FSx for Windows} (Windows/SMB).
+\textbf{Never EBS} for shared access --- EBS is attached to a single EC2 instance (except Multi-Attach io2, single AZ only).
+\end{examtip}
+
+%% ────────────────────────────────────────────────────────────────
+
+\subsection{Amazon EFS --- Elastic File System}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Fully managed \textbf{NFS} file system; \textbf{Linux only} (NFSv4.1/4.2).
+  \item \textbf{Elastic}: automatically grows and shrinks; no capacity planning.
+  \item \textbf{Multi-AZ}: data stored across multiple AZs by default (Regional mode).
+        One Zone mode (single AZ) is cheaper ($\sim$47\% less) for non-critical data.
+  \item Mount from EC2, Lambda (via VPC), ECS, EKS.
+  \item \textbf{Performance modes}: General Purpose (default, low latency); Max I/O (higher throughput,
+        higher latency --- large parallel workloads).
+  \item \textbf{Throughput modes}: Bursting (scales with storage size); Provisioned (fixed throughput
+        regardless of size); Elastic (auto-scales throughput).
+  \item \textbf{Storage classes}: Standard (frequent access); Infrequent Access (IA, cheaper);
+        Archive (rarely accessed, cheapest). Lifecycle Management moves files automatically.
+\end{itemize}
+\end{keyfacts}
+
+%% ────────────────────────────────────────────────────────────────
+
+\subsection{Amazon FSx}
+
+\subsubsection{FSx for Windows File Server}
+
+\begin{itemize}
+  \item Fully managed \textbf{SMB} (Windows file share) backed by Windows Server.
+  \item Integrates with \textbf{Microsoft Active Directory} (on-premises AD or AWS Managed AD).
+  \item Supports: DFS namespaces, DFS replication, User Quotas, ACLs.
+  \item Multi-AZ deployment for high availability.
+  \item On-premises access via Direct Connect or VPN.
+  \item Equivalent on-prem: Windows File Server.
+\end{itemize}
+
+\subsubsection{FSx for Lustre}
+
+\begin{itemize}
+  \item High-performance \textbf{parallel file system} for HPC, ML, media processing.
+  \item \textbf{POSIX-compliant}; sub-millisecond latency; hundreds of GB/s throughput;
+        millions of IOPS.
+  \item Seamless integration with \textbf{S3}: lazy-load data from S3 on first access;
+        write results back to S3. Ideal for burst-out ML training from a data lake.
+  \item \textbf{Deployment types}: Scratch (short-term, no replication, cheapest);
+        Persistent (long-term, replicated within AZ).
+  \item On-premises access via Direct Connect or VPN.
+\end{itemize}
+
+\begin{examtip}
+\textbf{``HPC / ML training / high-throughput parallel access from many nodes''} $\Rightarrow$ \textbf{FSx for Lustre}.
+Millions of IOPS at sub-millisecond latency; pairs with S3 as the data source.
+\end{examtip}
+
+\subsubsection{FSx for NetApp ONTAP}
+
+\begin{itemize}
+  \item Managed NetApp ONTAP; supports \textbf{NFS, SMB, iSCSI}.
+  \item Best for lifting and shifting workloads that use NetApp on-premises.
+  \item Features: deduplication, compression, thin provisioning, snapshots, SnapMirror replication.
+  \item Multi-AZ with automated failover.
+\end{itemize}
+
+\subsubsection{FSx for OpenZFS}
+
+\begin{itemize}
+  \item Managed ZFS file system; \textbf{NFS} access.
+  \item For Linux applications that rely on ZFS features: snapshots, clones, compression.
+  \item Up to 1 million IOPS; sub-millisecond latency.
+\end{itemize}
+
+%% ────────────────────────────────────────────────────────────────
+
+\subsection{EBS Volume Types}
+
+\begin{comparebox}[title={EBS volume type selection}]
+\begin{tabular}{@{}p{2.5cm}p{2.5cm}p{2.5cm}p{4cm}@{}}
+\toprule
+\textbf{Type} & \textbf{Category} & \textbf{Max IOPS} & \textbf{Use case} \\
+\midrule
+\textbf{gp3}  & General SSD & 16\,000 & Most workloads; configurable IOPS/throughput (decoupled from size) \\[3pt]
+\textbf{gp2}  & General SSD & 16\,000 & Legacy general purpose (prefer gp3 for new volumes) \\[3pt]
+\textbf{io2}  & Provisioned SSD & 256\,000 & High-performance DBs; Multi-Attach; SAP HANA \\[3pt]
+\textbf{io1}  & Provisioned SSD & 64\,000 & Legacy high-IOPS (prefer io2) \\[3pt]
+\textbf{st1}  & Throughput HDD & N/A & Big data, log processing, sequential large reads (max 500 MB/s) \\[3pt]
+\textbf{sc1}  & Cold HDD & N/A & Infrequently accessed; lowest cost block storage \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{``Highest IOPS possible''} $\Rightarrow$ \textbf{io2 Block Express} (256K IOPS).
+\textbf{``Cost-effective general SSD''} $\Rightarrow$ \textbf{gp3} (cheaper than gp2, independent IOPS/throughput tuning).
+\textbf{Cannot encrypt an existing unencrypted volume directly} --- create a snapshot, copy with encryption enabled, then create new volume from encrypted snapshot.
+\end{examtip}
+
+%% ────────────────────────────────────────────────────────────────
+
+\subsection{AWS Storage Gateway}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Hybrid storage service bridging on-premises applications to AWS storage.
+  \item Runs as a VM appliance on-premises (VMware, Hyper-V, EC2) or hardware appliance.
+\end{itemize}
+\end{keyfacts}
+
+\begin{comparebox}[title={Storage Gateway modes}]
+\begin{tabular}{@{}p{3.2cm}p{4.5cm}p{4.2cm}@{}}
+\toprule
+\textbf{Mode} & \textbf{How it works} & \textbf{Use case} \\
+\midrule
+\textbf{File Gateway}   & NFS/SMB interface; files stored as objects in S3;
+                          local cache for frequently accessed data &
+  On-prem apps that need file access but store data in S3 \\[4pt]
+\textbf{Volume Gateway} & iSCSI block volumes backed by S3 + EBS snapshots.
+                          \emph{Cached mode}: primary data in S3, cache on-prem.
+                          \emph{Stored mode}: primary on-prem, async backup to S3 &
+  iSCSI block storage with cloud backup / DR \\[4pt]
+\textbf{Tape Gateway}   & Virtual Tape Library (VTL); iSCSI interface; virtual tapes in S3 / Glacier &
+  Replace physical tape backups; use existing backup software \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{sapdepth}
+\textbf{SAP: Storage migration strategies:}
+\begin{itemize}
+  \item \textbf{AWS DataSync}: automate and accelerate data transfer from on-prem NAS/NFS/SMB to
+        S3, EFS, or FSx. Handles scheduling, encryption, integrity checks. Up to 10 Gb/s per task.
+  \item \textbf{AWS Transfer Family}: managed SFTP, FTP, FTPS, AS2 server fronting S3 or EFS.
+        Replace on-prem FTP servers without changing existing client workflows.
+  \item \textbf{Storage Gateway File mode}: use as a long-term bridge; on-prem apps see NFS
+        while data lives in S3. Good for gradual migration to cloud.
+  \item \textbf{Snow Family $\rightarrow$ S3}: when network transfer would take $>$1 week,
+        use Snowball Edge (terabytes) or Snowmobile (petabytes) for offline bulk transfer.
+\end{itemize}
+\end{sapdepth}

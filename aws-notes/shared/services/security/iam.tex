@@ -1,0 +1,160 @@
+%% ============================================================
+%% shared/services/security/iam.tex
+%% AWS IAM — SAA + SAP
+%% ============================================================
+
+\servicesection{AWS IAM}{\bothtag}{Control who can do what on which AWS resources}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Users}: long-term credentials (console password + access keys). One per human.
+  \item \textbf{Groups}: collection of users; attach policies to groups, not directly to users.
+  \item \textbf{Roles}: assumed by users, services, or federated identities;
+        short-lived temporary credentials via STS. No static keys.
+  \item \textbf{Policies}: JSON documents defining Allow/Deny on Actions/Resources/Conditions.
+  \item \textbf{Global service}: IAM is not region-specific; applies across all regions.
+  \item \textbf{Principle of Least Privilege}: grant only what is explicitly needed.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{IAM 10 Security Best Practices}
+
+\begin{enumerate}
+  \item \textbf{Lock away root user access keys} --- never create keys for root; use only for
+        account-level tasks (e.g.\ change root email). Enable MFA on root.
+  \item \textbf{Create individual IAM users} --- one identity per human; avoid shared accounts.
+  \item \textbf{Use groups to assign permissions} --- assign policies to groups; add users to groups.
+  \item \textbf{Grant least privilege} --- start with minimal permissions; expand only as needed.
+        Use IAM Access Analyzer to identify overly broad policies.
+  \item \textbf{Enable MFA for all users} --- especially for privileged/admin users.
+  \item \textbf{Use IAM roles for applications on EC2} --- never store access keys on instances;
+        use instance profiles for temporary credentials.
+  \item \textbf{Use roles to delegate access} --- cross-account access via IAM roles, not
+        sharing credentials.
+  \item \textbf{Rotate credentials regularly} --- rotate access keys periodically;
+        use Secrets Manager for automatic rotation of service credentials.
+  \item \textbf{Remove unnecessary credentials} --- disable/delete inactive users and unused keys.
+        Use credential report (\texttt{aws iam generate-credential-report}) to audit.
+  \item \textbf{Monitor activity with CloudTrail} --- enable a multi-region trail; alert on
+        sensitive API calls (e.g.\ \texttt{DeleteBucket}, \texttt{CreateUser}).
+\end{enumerate}
+
+\subsection{Policy Types}
+
+\begin{comparebox}[title={IAM policy types}]
+\begin{tabular}{@{}p{3.5cm}p{8cm}@{}}
+\toprule
+\textbf{Policy type} & \textbf{Description and attachment point} \\
+\midrule
+\textbf{Identity-based}      & Attached to IAM users, groups, or roles.
+                                Inline (embedded) or managed (standalone). \\[3pt]
+\textbf{Resource-based}      & Attached to a resource (S3 bucket, SQS queue, KMS key, Lambda).
+                                Specifies who (principal) can access. Enables cross-account. \\[3pt]
+\textbf{Permission boundary} & IAM-managed policy set as the maximum permissions boundary for
+                                a user or role; cannot grant \emph{more} than the boundary allows. \\[3pt]
+\textbf{SCP}                 & AWS Organizations policy; limits what accounts in an OU can do.
+                                Does not grant permissions --- sets the ceiling. \\[3pt]
+\textbf{Session policy}      & Inline policy passed during \texttt{AssumeRole}; further limits
+                                the session's permissions. Used in federation. \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsubsection{Policy Evaluation Logic}
+
+Evaluation order (all must allow; any explicit deny wins):
+\begin{enumerate}
+  \item \textbf{SCP} --- if deny, stop. If no allow statement, implicitly deny.
+  \item \textbf{Permission Boundary} --- limits effective permissions of user/role.
+  \item \textbf{Identity-based policy} --- must explicitly allow the action.
+  \item \textbf{Resource-based policy} --- if resource policy allows same account principal,
+        implicit allow (resource and identity policies work together for same-account).
+  \item \textbf{Explicit Deny anywhere} --- overrides all allows (highest priority).
+\end{enumerate}
+
+\begin{examtip}
+\textbf{Default is Deny.} All actions are implicitly denied unless explicitly allowed.
+An explicit \texttt{Deny} in any policy always wins, even if another policy has an \texttt{Allow}.
+\textbf{SCPs do not grant permissions} --- an SCP allow without a corresponding IAM allow does nothing.
+\end{examtip}
+
+\subsection{IAM Roles \& STS}
+
+\begin{itemize}
+  \item \textbf{AssumeRole}: a principal calls STS \texttt{AssumeRole}; receives temporary
+        security credentials (access key, secret key, session token) valid 15 min -- 12 hours.
+  \item \textbf{Cross-account roles}: account A trusts account B in the role's trust policy;
+        users in B can assume the role in A. Cleanest cross-account access pattern.
+  \item \textbf{Instance Profiles}: IAM role attached to an EC2 instance; SDK on the instance
+        automatically retrieves temporary credentials from IMDS (\texttt{169.254.169.254}).
+  \item \textbf{External ID}: condition in the trust policy for third-party cross-account access;
+        prevents the \emph{confused deputy problem} (third party uses your role for another customer).
+  \item \textbf{Role chaining}: assuming a role that then assumes another role; max session
+        duration resets to 1 hour; can cause complexity --- use sparingly.
+\end{itemize}
+
+\subsection{IAM Identity Center (SSO)}
+
+\begin{itemize}
+  \item Centralised access management for multiple AWS accounts and cloud applications.
+  \item Replaces legacy AWS SSO; integrates with Active Directory or external IdPs (Okta, Azure AD).
+  \item \textbf{Permission Sets}: templates applied to accounts; map to IAM roles in each account.
+  \item Single sign-on portal: users log in once, access all assigned accounts and apps.
+  \item Recommended replacement for individual IAM users for human access.
+\end{itemize}
+
+\subsection{MFA \& Credential Security}
+
+\begin{itemize}
+  \item \textbf{MFA types}: Virtual (Google Authenticator), Hardware TOTP token, FIDO2/WebAuthn
+        (hardware security key), SMS (not recommended).
+  \item \textbf{Credential report}: CSV listing all IAM users, their credential types, last-used,
+        rotation dates, MFA status. Generate with \texttt{aws iam generate-credential-report}.
+  \item \textbf{Access Advisor}: shows which services a user or role has accessed and when.
+        Helps identify and remove unused permissions.
+\end{itemize}
+
+\begin{saadepth}
+\textbf{SAA: IAM for EC2 and S3 patterns:}
+\begin{itemize}
+  \item EC2 $\rightarrow$ S3: use instance profile (IAM role), not access keys. Role policy
+        grants \texttt{s3:GetObject}; no credentials stored on instance.
+  \item S3 cross-account: bucket policy (resource-based) grants the other account's role
+        permission; \emph{and} the role's identity policy must allow \texttt{s3:*}.
+        Both must allow --- resource policy alone is not enough for same-account but is
+        sufficient for cross-account when the bucket policy grants access.
+  \item \textbf{IAM Access Analyzer}: continuously analyses resource policies to find
+        resources shared outside the account or organisation.
+\end{itemize}
+\end{saadepth}
+
+\begin{sapdepth}
+\textbf{SAP: IAM at enterprise scale:}
+\begin{itemize}
+  \item \textbf{SCPs + IAM together}: SCPs are guardrails on the OU; IAM policies grant
+        individual access. Use SCPs to deny risky actions (disable CloudTrail, leave Org, create IAM users)
+        across all member accounts without touching individual account IAM.
+  \item \textbf{Permission Boundaries}: delegate IAM administration safely.
+        Developer can create roles but only up to the boundary --- prevents privilege escalation.
+  \item \textbf{ABAC (Attribute-Based Access Control)}: use resource/request tags as IAM
+        conditions. One policy covers many resources if tags match.
+        Scales better than RBAC for large teams.
+  \item \textbf{SAML 2.0 federation}: enterprise IdP (AD, Okta) $\rightarrow$ STS
+        \texttt{AssumeRoleWithSAML} $\rightarrow$ temporary AWS credentials.
+        Users authenticate to corporate IdP, not directly to AWS.
+  \item \textbf{OIDC federation}: web/mobile apps use Google/Facebook/Cognito IdP
+        $\rightarrow$ STS \texttt{AssumeRoleWithWebIdentity}.
+\end{itemize}
+\end{sapdepth}
+
+\begin{examtip}
+\textbf{SCP vs IAM policy:} SCPs set the \emph{maximum} permissions for an account
+in an AWS Organization --- they do \emph{not} grant permissions themselves. An SCP
+\texttt{Allow} alone does nothing; the IAM policy must also allow the action.
+\end{examtip}
+
+\begin{gotcha}
+\textbf{Confused deputy attack:} when a third-party assumes a role in your account,
+always use an \textbf{External ID} condition in the trust policy to prevent
+unauthorised cross-account access.
+\end{gotcha}

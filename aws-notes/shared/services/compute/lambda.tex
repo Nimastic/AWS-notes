@@ -1,0 +1,123 @@
+%% ============================================================
+%% shared/services/compute/lambda.tex
+%% AWS Lambda — SAA + SAP
+%% ============================================================
+
+\servicesection{AWS Lambda}{\bothtag}{Serverless compute --- event-driven, pay-per-invocation}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Runs code in response to events; AWS manages servers, scaling, patching.
+  \item \textbf{Supported runtimes}: Node.js, Python, Java, Go, Ruby, .NET, custom (container image).
+  \item \textbf{Max execution time}: 15 minutes (900 s) per invocation.
+  \item \textbf{Memory}: 128\,MB -- 10\,240\,MB (CPU scales proportionally).
+  \item \textbf{Deployment package}: ZIP $\leq$50\,MB direct / 250\,MB unzipped; up to 10\,GB via container image.
+  \item \textbf{Ephemeral storage} (\texttt{/tmp}): 512\,MB -- 10\,240\,MB.
+  \item \textbf{Concurrency}: \default{1\,000 concurrent executions per region} (soft limit).
+  \item \textbf{Pricing}: \$0.20 per 1\,M requests + duration (GB-s); generous free tier.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Invocation Models}
+
+\begin{comparebox}[title={Lambda invocation models}]
+\begin{tabular}{@{}p{2.8cm}p{4.2cm}p{4.6cm}@{}}
+\toprule
+\textbf{Model} & \textbf{How it works} & \textbf{Common triggers} \\
+\midrule
+\textbf{Synchronous} & Caller waits; errors returned to caller &
+  API Gateway, ALB, Cognito, CloudFront@Edge \\[4pt]
+\textbf{Asynchronous} & Lambda queues event; retries $\leq$2$\times$; DLQ for failures &
+  S3 events, SNS, EventBridge, CloudWatch Events \\[4pt]
+\textbf{Event Source Mapping} & Lambda polls source; processes in batches &
+  SQS, Kinesis, DynamoDB Streams, MSK \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{SQS + Lambda} (event source mapping): Lambda polls SQS. Messages are deleted only
+after successful processing. On failure they become visible again; after max retries they
+go to a DLQ. This is the canonical \emph{decouple-and-process} pattern for SAA questions.
+\end{examtip}
+
+\subsection{Networking --- Lambda in a VPC}
+
+By default Lambda runs in an AWS-managed VPC with internet access.
+To connect to \emph{private} resources (RDS, ElastiCache, private APIs):
+
+\begin{itemize}
+  \item Configure Lambda with a VPC, subnet(s), and Security Group.
+  \item Lambda injects \textbf{Elastic Network Interfaces (ENIs)} in the specified subnets.
+  \item Private subnet $\Rightarrow$ needs \textbf{NAT Gateway} for internet; or use
+        \textbf{VPC Endpoints} for AWS services (S3, DynamoDB, etc.).
+  \item Cold start latency increases slightly; mitigated with \textbf{Provisioned Concurrency}.
+\end{itemize}
+
+\begin{gotcha}
+Lambda in a VPC \emph{loses internet access} unless a NAT Gateway is present.
+This is the \#1 Lambda VPC trap: Lambda can reach private RDS but cannot call
+external APIs or reach S3/DynamoDB without a NAT Gateway or VPC Endpoint.
+\end{gotcha}
+
+\subsection{Concurrency \& Scaling}
+
+\begin{itemize}
+  \item \textbf{Reserved concurrency}: hard cap on a function's concurrent executions.
+        Guarantees capacity; prevents one function from starving others.
+  \item \textbf{Provisioned concurrency}: pre-initialises execution environments;
+        eliminates cold-start latency --- essential for latency-sensitive APIs.
+  \item \textbf{Burst concurrency}: Lambda can scale from 0 to thousands of instances
+        in seconds (pool-based initial burst, then linear growth).
+\end{itemize}
+
+\subsection{Common Architecture Patterns}
+
+\begin{itemize}
+  \item \textbf{REST API}: API Gateway $\rightarrow$ Lambda $\rightarrow$ DynamoDB / RDS (via RDS Proxy)
+  \item \textbf{File processing}: S3 \texttt{PutObject} event $\rightarrow$ Lambda (image resize, ETL)
+  \item \textbf{Stream processing}: Kinesis / DynamoDB Streams $\rightarrow$ Lambda (event source mapping)
+  \item \textbf{Fan-out}: SNS $\rightarrow$ Lambda (asynchronous; multiple subscribers possible)
+  \item \textbf{Scheduled tasks}: EventBridge scheduled rule $\rightarrow$ Lambda (cron replacement)
+  \item \textbf{Auth at edge}: Lambda@Edge or CloudFront Function for JWT validation, A/B testing
+\end{itemize}
+
+\begin{saadepth}
+\textbf{Lambda vs EC2 --- when to choose:}
+\begin{itemize}
+  \item \textbf{Lambda}: short-lived tasks ($<$15 min), event-driven or spiky traffic,
+        no server management desired, per-request billing is cost-effective.
+  \item \textbf{EC2}: long-running processes, custom OS / runtime needs, GPU compute,
+        sustained high-throughput where per-invocation pricing becomes expensive.
+  \item Lambda cannot keep persistent database connections across invocations ---
+        use \textbf{RDS Proxy} to pool connections in Lambda-to-RDS architectures.
+\end{itemize}
+\end{saadepth}
+
+\begin{sapdepth}
+\textbf{Lambda advanced topics (SAP):}
+\begin{itemize}
+  \item \textbf{Lambda Destinations}: on success/failure route results to SQS, SNS,
+        EventBridge, or another Lambda. Richer than DLQ; preserves invocation metadata.
+  \item \textbf{Lambda Extensions}: attach observability agents (Datadog, Splunk) as
+        layers without modifying function code.
+  \item \textbf{Container Images}: package as Docker image ($\leq$10\,GB from ECR);
+        same Lambda runtime model --- good for large ML models or custom runtimes.
+  \item \textbf{Step Functions + Lambda}: orchestrate multi-step workflows; Lambda
+        handles individual steps; Step Functions manages retries, branching, and state.
+  \item \textbf{ALB vs API Gateway}: ALB cheaper for simple HTTP routing to Lambda;
+        API Gateway adds auth, throttling, usage plans, WebSocket, request/response
+        transformation --- justified for public-facing APIs.
+  \item \textbf{Multi-region}: identical Lambda + API Gateway stacks per region;
+        Route~53 latency-based or health-check failover routing.
+  \item \textbf{Lambda SnapStart (Java)}: initialises function on version publish,
+        snapshots memory/disk state; near-zero cold start for Java runtimes.
+\end{itemize}
+\end{sapdepth}
+
+\begin{examtip}
+\textbf{Key limits for exam:} 15-min max timeout, 10\,GB RAM, 10\,GB /tmp,
+10\,GB container image, 1\,000 default concurrent executions per region.
+If a question mentions a ``15-minute processing job'' running on Lambda ---
+that is the maximum; anything longer must use EC2, ECS, or Batch.
+\end{examtip}

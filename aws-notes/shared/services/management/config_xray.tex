@@ -1,0 +1,128 @@
+%% ============================================================
+%% shared/services/management/config_xray.tex
+%% AWS Config, X-Ray, Audit Manager, Continuous Compliance — SAP
+%% ============================================================
+
+\servicesection{AWS Config}{\saptag}{Continuous resource configuration tracking and compliance}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Records \textbf{configuration history} of AWS resources (who changed what, when, and to what).
+        Unlike CloudTrail (API calls), Config tracks the \emph{state} of resources over time.
+  \item \textbf{Config Rules}: evaluate resources against desired configuration.
+        Managed rules (AWS-provided) or Custom rules (Lambda-backed).
+  \item \textbf{Evaluation triggers}: on configuration change, periodic, or on-demand.
+  \item \textbf{Conformance Packs}: bundle of Config rules + remediation actions as a deployable unit.
+        Use for compliance standards (CIS, NIST, PCI-DSS, HIPAA).
+  \item \textbf{Aggregator}: collect Config data from multiple accounts and regions into a central
+        account for an org-wide compliance view.
+  \item \textbf{Remediation}: auto-remediation via SSM Automation runbooks on rule violation
+        (e.g.\ auto-enable encryption on non-compliant S3 bucket).
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+\textbf{Config vs CloudTrail:}
+\begin{itemize}
+  \item \textbf{CloudTrail} = ``Who made the API call?'' (who deleted the security group rule, when)
+  \item \textbf{Config} = ``What does the resource look like now vs before?'' (was the S3 bucket public? is encryption enabled?)
+  \item They are complementary: Config detects drift; CloudTrail identifies who caused it.
+\end{itemize}
+\end{examtip}
+
+\subsection{Continuous Compliance Services}
+
+\begin{comparebox}[title={Compliance and governance tools}]
+\begin{tabular}{@{}p{3.5cm}p{7.5cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Purpose} \\
+\midrule
+\textbf{AWS Config}         & Resource config tracking; compliance rules; drift detection;
+                              auto-remediation; org-wide aggregation \\[4pt]
+\textbf{AWS Audit Manager}  & Automate evidence collection for compliance audits (PCI-DSS, HIPAA, SOC2,
+                              GDPR, ISO 27001). Maps AWS usage to audit controls continuously \\[4pt]
+\textbf{AWS Artifact}       & On-demand access to AWS compliance reports (SOC, PCI, ISO) and
+                              agreements (BAA, NDA). No active scanning --- document repository \\[4pt]
+\textbf{Security Hub}       & Aggregates findings from Config, GuardDuty, Inspector, Macie, IAM Access
+                              Analyzer. CSPM (Cloud Security Posture Management). Single dashboard \\[4pt]
+\textbf{AWS Firewall Manager} & Centrally manage WAF, Shield Advanced, Security Groups, Network Firewall,
+                              Route 53 DNS Firewall across all accounts in an Organisation \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{``Prove compliance to auditors''} $\Rightarrow$ \textbf{Audit Manager} (continuous evidence collection)
++ \textbf{Artifact} (AWS-issued compliance reports).
+\textbf{``Continuously detect non-compliant resources''} $\Rightarrow$ \textbf{Config rules}.
+\textbf{``Central security dashboard across accounts''} $\Rightarrow$ \textbf{Security Hub}.
+\textbf{``Apply WAF rules to all accounts automatically''} $\Rightarrow$ \textbf{Firewall Manager}.
+\end{examtip}
+
+\subsection{Patch Management Strategy}
+
+\begin{itemize}
+  \item \textbf{SSM Patch Manager}: define \textbf{Patch Baselines} (which patches are auto-approved
+        by OS/severity/age); schedule patching via \textbf{Maintenance Windows}
+        (low-traffic periods).
+  \item \textbf{Amazon Inspector}: continuously scan EC2 and ECS container images for unpatched
+        CVEs. Generates prioritised findings (critical/high/medium).
+  \item \textbf{Immutable patching}: replace instances (launch new AMI) rather than patching
+        in-place. Safer, predictable, no configuration drift. Use with Auto Scaling and golden AMIs.
+\end{itemize}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{AWS X-Ray}{\saptag}{Distributed tracing for microservices and serverless}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Traces requests as they travel through distributed application components.
+  \item \textbf{Segments}: data from a single service (Lambda, EC2, ECS, API Gateway).
+  \item \textbf{Subsegments}: finer-grained detail within a segment (DB call, HTTP request).
+  \item \textbf{Traces}: end-to-end request journey across all segments.
+  \item \textbf{Service Map}: visual graph of components and their connections; latency and
+        error rates per edge.
+  \item \textbf{X-Ray SDK}: instrument application code (Node.js, Python, Java, Go, Ruby, .NET).
+  \item \textbf{X-Ray Daemon}: collects raw segment data and sends to X-Ray API (runs as a
+        sidecar or agent on EC2/ECS).
+\end{itemize}
+\end{keyfacts}
+
+\textbf{Integrations} (built-in, no SDK required):
+\begin{itemize}
+  \item \textbf{Lambda}: enable Active Tracing in function configuration.
+  \item \textbf{API Gateway}: enable X-Ray tracing on a stage.
+  \item \textbf{ECS}: run X-Ray daemon as a sidecar container in the task definition.
+  \item \textbf{Elastic Beanstalk}: enable via Beanstalk configuration option.
+\end{itemize}
+
+\begin{examtip}
+X-Ray = \textbf{``find the slow part''} or \textbf{``trace errors across microservices''}.
+CloudWatch = \textbf{``aggregate metrics and alert''}.
+CloudTrail = \textbf{``audit who did what''}.
+All three together provide full observability: metrics (CloudWatch) + traces (X-Ray) + logs (CloudWatch Logs) + audit (CloudTrail).
+\end{examtip}
+
+\begin{sapdepth}
+\textbf{SAP: Observability stack:}
+\begin{itemize}
+  \item \textbf{CloudWatch ServiceLens}: combines CloudWatch metrics, CloudWatch Logs, and X-Ray
+        traces in a unified console. Service map with health indicators.
+  \item \textbf{Amazon Managed Grafana}: visualise metrics from CloudWatch, X-Ray, Prometheus,
+        OpenSearch, and other data sources. Multi-account dashboards.
+  \item \textbf{Amazon Managed Service for Prometheus}: open-source Prometheus-compatible
+        monitoring for Kubernetes (EKS). Pairs with Managed Grafana.
+  \item \textbf{Performance bottleneck decision framework:}
+    \begin{itemize}
+      \item CPU-bound $\Rightarrow$ scale out (more instances) or Compute Optimized family
+      \item Memory-bound $\Rightarrow$ Memory Optimized instances; add ElastiCache
+      \item I/O-bound $\Rightarrow$ upgrade EBS (gp3 $\rightarrow$ io2); use Instance Store;
+            add Read Replicas
+      \item Network-bound $\Rightarrow$ Enhanced Networking (SR-IOV); Placement Groups;
+            check ENI limits
+      \item Database $\Rightarrow$ Read Replicas; DAX/ElastiCache; query optimisation;
+            connection pooling (RDS Proxy)
+    \end{itemize}
+\end{itemize}
+\end{sapdepth}

@@ -1,0 +1,96 @@
+%% ============================================================
+%% shared/services/networking/route53.tex
+%% Amazon Route 53 — SAA + SAP
+%% ============================================================
+
+\servicesection{Amazon Route~53}{\bothtag}{Managed DNS, domain registration, health checks, traffic routing}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Authoritative DNS} service; manages DNS records for your domains.
+  \item Supports domain registration (purchase/transfer domains through Route~53).
+  \item \textbf{Hosted Zones}: container for DNS records. Public (internet-facing) or
+        Private (resolves within a VPC).
+  \item \textbf{Health Checks}: monitor endpoints, other health checks (calculated), or
+        CloudWatch alarms. Used to enable DNS failover.
+  \item \textbf{Alias records}: Route~53-specific extension; points to AWS resources
+        (ALB, CloudFront, Elastic Beanstalk, S3 website, another Route~53 record).
+        \emph{No TTL cost}; resolves at Route~53 edge; can target zone apex (\texttt{example.com}).
+  \item \textbf{CNAME vs Alias}: CNAME cannot be used at zone apex; Alias can.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Routing Policies}
+
+\begin{comparebox}[title={Route~53 routing policies}]
+\begin{tabular}{@{}p{3cm}p{5cm}p{4cm}@{}}
+\toprule
+\textbf{Policy} & \textbf{How it works} & \textbf{Typical use case} \\
+\midrule
+\textbf{Simple}      & Returns all values; client picks randomly &
+  Single resource; no health checks \\[4pt]
+\textbf{Weighted}    & Distributes traffic by percentage weight &
+  A/B testing, blue/green deployments \\[4pt]
+\textbf{Latency}     & Routes to region with lowest network latency for the user &
+  Multi-region active-active \\[4pt]
+\textbf{Failover}    & Primary $\rightarrow$ Secondary on health-check failure &
+  Disaster recovery, active-passive \\[4pt]
+\textbf{Geolocation} & Routes by user's geographic location (continent, country, state) &
+  Content localisation, data residency \\[4pt]
+\textbf{Geoproximity} & Routes by geographic distance, adjustable with bias &
+  Shift traffic between regions (Traffic Flow) \\[4pt]
+\textbf{Multi-Value} & Returns up to 8 healthy records; client picks &
+  Simple load distribution with health checks \\[4pt]
+\textbf{IP-based}    & Routes by CIDR block of the client's IP &
+  ISP optimisation, cost reduction \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\begin{itemize}
+  \item \textbf{Failover} = active-passive DR with automatic DNS cutover.
+  \item \textbf{Latency} = ``lowest latency for the user'' = multi-region active-active.
+  \item \textbf{Geolocation} = route by country/continent --- data sovereignty.
+  \item \textbf{Weighted} = A/B test or gradual traffic shift (e.g.\ 10\%/90\% blue-green).
+  \item \textbf{Multi-Value} is NOT a load balancer replacement (no sticky sessions,
+        no health-aware connection pooling) --- use ALB for that.
+\end{itemize}
+\end{examtip}
+
+\subsection{Health Checks}
+
+\begin{itemize}
+  \item Monitor endpoints over HTTP, HTTPS, or TCP.
+  \item \textbf{Calculated health checks}: combine multiple sub-checks (AND/OR logic).
+  \item \textbf{CloudWatch alarm health check}: triggers based on a CloudWatch metric
+        (e.g.\ SQS queue depth, custom metric) rather than an HTTP endpoint.
+  \item Health checks originate from Route~53 health checkers in multiple regions
+        (must allow traffic from Route~53 CIDR ranges).
+\end{itemize}
+
+\subsection{Private Hosted Zones}
+
+\begin{itemize}
+  \item Resolves internal DNS names within one or more VPCs.
+  \item VPC must have \textbf{DNS Resolution} and \textbf{DNS Hostnames} enabled.
+  \item Associate multiple VPCs to one private hosted zone (cross-account via CLI/API).
+  \item For hybrid (on-prem to AWS DNS): use \textbf{Route~53 Resolver inbound / outbound endpoints}
+        (see hybrid\_connectivity.tex).
+\end{itemize}
+
+\begin{sapdepth}
+\textbf{SAP: Route~53 advanced patterns:}
+\begin{itemize}
+  \item \textbf{Traffic Flow + Geoproximity}: visual editor for complex routing; shift traffic
+        between regions with bias value ($-$99 to $+$99).
+  \item \textbf{Resolver DNS Firewall}: block queries to malicious domains;
+        complements Route~53 Resolver for VPC-level DNS filtering.
+  \item \textbf{DNSSEC}: sign hosted zone records to prevent DNS spoofing;
+        supported for public hosted zones.
+  \item \textbf{Multi-region active-active}: Latency routing + health checks + Global Accelerator
+        (for non-HTTP workloads). Route~53 handles DNS; Global Accelerator handles anycast IP.
+  \item \textbf{Failover chain}: Route~53 Failover $\rightarrow$ CloudFront $\rightarrow$ ALB $\rightarrow$
+        EC2/ECS in primary region; on primary failure, DNS flips to secondary region ALB.
+\end{itemize}
+\end{sapdepth}

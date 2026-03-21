@@ -1,0 +1,107 @@
+%% ============================================================
+%% sap/domains.tex  —  SAP-C02 Domain Summaries
+%% ============================================================
+
+\section{Domain Map Overview}
+
+SAP questions are scenario-heavy. The right answer often depends on
+\emph{organisational constraints} (existing on-prem, multi-account, compliance).
+Always read the full scenario before eliminating options.
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 1 — Design Solutions for Organizational Complexity (26\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{1}{Design Solutions for Organizational Complexity}
+\textbf{Key services:} AWS Organizations, Control Tower, Service Control Policies (SCPs),
+IAM Identity Center, Resource Access Manager (RAM), Service Catalog, Config Aggregator,
+Security Hub (multi-account), CloudTrail (org trail), Cost Allocation Tags.
+
+\textbf{Core tasks:}
+\begin{itemize}
+  \item Architect network connectivity strategies for complex environments
+    (Transit Gateway, Direct Connect, VPN hub-and-spoke)
+  \item Prescribe security controls for multi-account environments
+    (SCPs, permission boundaries, IAM Identity Center)
+  \item Design multi-account management strategies (AWS Organizations, Landing Zone)
+  \item Determine cost optimisation opportunities across an organization
+\end{itemize}
+
+\textbf{Watch for keywords:} "hundreds of accounts," "centrally enforce,"
+"prevent member accounts from," "shared services VPC," "org-wide CloudTrail."
+\end{domainsummary}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 2 — Design for New Solutions (29\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{2}{Design for New Solutions}
+\textbf{Key services:} All SAA services + EKS, AppSync, EventBridge Pipes,
+Step Functions, MWAA, Kinesis Data Streams/Firehose, OpenSearch, Lake Formation,
+Glue, AppFlow, API Gateway (private/edge/regional), ElastiCache Global Datastore.
+
+\textbf{Core tasks:}
+\begin{itemize}
+  \item Design a deployment strategy to meet business requirements (canary, blue/green)
+  \item Design a solution to ensure business continuity (active-active, global)
+  \item Determine security controls based on requirements
+  \item Design a reliable and resilient architecture
+  \item Design a solution to meet performance objectives
+  \item Determine a cost-optimised design
+\end{itemize}
+
+\textbf{Watch for keywords:} "zero-downtime deployment," "near-zero RPO,"
+"event-driven," "microservices," "global users," "high throughput ingestion."
+\end{domainsummary}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 3 — Continuous Improvement for Existing Solutions (25\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{3}{Continuous Improvement for Existing Solutions}
+\textbf{Key services:} Trusted Advisor, Compute Optimizer, Cost Explorer, Systems Manager,
+Config Rules (auto-remediation), CloudWatch (alarms, dashboards, anomaly detection),
+X-Ray, CloudTrail, DevOps Guru, Resilience Hub.
+
+\textbf{Core tasks:}
+\begin{itemize}
+  \item Determine a strategy to improve overall operational excellence
+  \item Determine a strategy to improve security (automated remediation, detective controls)
+  \item Determine a strategy to improve reliability
+  \item Determine a strategy to improve performance
+  \item Determine a strategy to improve cost optimisation
+\end{itemize}
+
+\textbf{Watch for keywords:} "improve existing," "reduce operational overhead,"
+"automate remediation," "identify underutilised," "reduce costs on current architecture."
+\end{domainsummary}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 4 — Accelerate Workload Migration and Modernization (20\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{4}{Accelerate Workload Migration and Modernization}
+\textbf{Key services:} Application Migration Service (MGN), Database Migration Service (DMS),
+Schema Conversion Tool (SCT), Migration Hub, VM Import/Export, DataSync, Snow Family
+(Snowball Edge, Snowcone, Snowmobile), Transfer Family, Mainframe Modernization.
+
+\textbf{The 7 Rs of Migration:}
+\begin{enumerate}
+  \item \textbf{Retire} — decommission, no longer needed
+  \item \textbf{Retain} — keep on-prem (compliance, not ready)
+  \item \textbf{Rehost} (Lift \& Shift) — move as-is to EC2/MGN
+  \item \textbf{Relocate} — move hypervisor to VMware Cloud on AWS
+  \item \textbf{Replatform} (Lift \& Reshape) — minor optimisation (EC2 → RDS)
+  \item \textbf{Repurchase} — move to SaaS (e.g.\ CRM → Salesforce)
+  \item \textbf{Refactor/Re-architect} — redesign for cloud-native (Lambda, containers)
+\end{enumerate}
+
+\textbf{Watch for keywords:} "migrate with minimal downtime," "large dataset transfer,"
+"heterogeneous database migration," "containerise existing app," "modernise mainframe."
+\end{domainsummary}
+
+\begin{examtip}[title={\faLightbulb~Migration exam tip}]
+When the question mentions \textbf{terabytes of data} and a \textbf{slow/expensive link},
+the answer is almost always a \textbf{Snow Family} device, not DataSync or Direct Connect.
+DataSync is best for ongoing, incremental sync over an existing network connection.
+\end{examtip}

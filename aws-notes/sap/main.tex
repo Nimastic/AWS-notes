@@ -1,0 +1,181 @@
+%% ============================================================
+%% sap/main.tex  —  AWS SAP-C02 Notes
+%%
+%% Compile from this file's directory:
+%%   pdflatex main.tex
+%% ============================================================
+
+\documentclass[12pt, a4paper]{article}
+
+%% Define which exam this is (used in page header via \examlabel)
+\newcommand{\examlabel}{SAP-C02}
+
+\input{../preamble}   % shared preamble
+
+\title{
+  \vspace{-1cm}
+  {\color{awsorange}\rule{\linewidth}{3pt}}\\[8pt]
+  {\Huge\bfseries\color{awsdark} AWS Solutions Architect}\\[4pt]
+  {\large\color{sapcolor} Professional (SAP-C02) — Study Notes}\\[6pt]
+  {\color{awsorange}\rule{\linewidth}{1pt}}
+  \vspace{-8pt}
+}
+\author{}
+\date{\small Last updated: \today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=sapcolor!5, colframe=sapcolor, title=Study strategy for SAP]
+SAP builds directly on SAA. These notes focus on \textbf{depth and breadth beyond the associate level}:
+\begin{itemize}
+  \item \saptag\ blocks in the shared service files are your primary SAP study material.
+  \item This document adds domain-level context that is \emph{SAP-only} (multi-account, migration, governance).
+  \item If a concept is tagged \bothtag\ in the shared files, treat it as assumed knowledge here.
+\end{itemize}
+\end{tcolorbox}
+
+\vspace{1em}
+\tableofcontents
+\newpage
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Exam Overview}
+%% ═══════════════════════════════════════════════════════════════
+
+\section{SAP-C02 at a Glance}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Questions:} 65 scored + 10 unscored = 75 total
+  \item \textbf{Duration:} 180 minutes
+  \item \textbf{Passing score:} 750 / 1000
+  \item \textbf{Format:} Multiple choice + Multiple response (often 3-of-5 or 2-of-5)
+  \item \textbf{Prerequisite (recommended):} SAA-C03 or equivalent experience
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Domain Weightings}
+
+\begin{comparebox}[title={SAP-C02 content domains}]
+\begin{tabular}{@{}clc@{}}
+\toprule
+\textbf{Domain} & \textbf{Name} & \textbf{Weight} \\
+\midrule
+1 & Design Solutions for Organizational Complexity    & 26\% \\
+2 & Design for New Solutions                          & 29\% \\
+3 & Continuous Improvement for Existing Solutions     & 25\% \\
+4 & Accelerate Workload Migration and Modernization   & 20\% \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\textbf{How SAP differs from SAA:}
+\begin{itemize}
+  \item Scenarios are longer and involve \emph{trade-offs} between multiple valid options
+  \item Heavy focus on \textbf{organisational complexity}: multi-account, hybrid, enterprise
+  \item Migration and modernisation at scale
+  \item Cost and operational \emph{governance}, not just individual architecture
+\end{itemize}
+
+\newpage
+\input{domains}   % SAP domain notes
+
+%% ═══════════════════════════════════════════════════════════════
+\part{AWS Foundations (SAP depth)}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/global_infrastructure}
+\input{../shared/well_architected}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Compute (SAP depth)}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/compute/ec2}
+\input{../shared/services/compute/lambda}
+\input{../shared/services/compute/auto_scaling_elb}
+\input{../shared/services/compute/containers}
+\input{../shared/services/compute/cicd_deployment}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Storage (SAP depth)}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/storage/s3}
+\input{../shared/services/storage/efs_fsx}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Networking (SAP depth)}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/networking/vpc}
+\input{../shared/services/networking/hybrid_connectivity}
+\input{../shared/services/networking/route53}
+\input{../shared/services/networking/cloudfront}
+%% \input{../shared/services/networking/global_accelerator}
+%% \input{../shared/services/networking/network_firewall}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Security \& Identity (SAP depth)}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/security/iam}
+\input{../shared/services/security/kms_shield_waf}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Databases (SAP depth)}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/database/rds}
+\input{../shared/services/database/dynamodb}
+\input{../shared/services/database/purpose_built_databases}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Integration, Messaging \& Analytics}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/integration/messaging}
+\input{../shared/services/analytics/analytics}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Reliability \& DR (SAP depth)}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/dr_strategies}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Migration \& Modernisation}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/migration/migration}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Governance \& Cost Management}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/services/management/organizations}
+\input{../shared/services/management/cloudwatch_cfn}
+\input{../shared/services/management/config_xray}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Architecture Patterns}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/architecture_patterns}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Quick Reference}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{../shared/quick_reference}
+
+%% ═══════════════════════════════════════════════════════════════
+\part{Practice Questions}
+%% ═══════════════════════════════════════════════════════════════
+
+\input{questions}
+
+\end{document}

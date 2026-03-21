@@ -1,0 +1,215 @@
+%% ============================================================
+%% shared/architecture_patterns.tex
+%% Key AWS Architecture Patterns
+%% Classification: BOTH (SAA: know all; SAP: design and justify each)
+%% ============================================================
+
+\servicesection{Key Architecture Patterns}{\bothtag}{%
+  Reference blueprints for the most common exam scenario architectures.}
+
+These patterns appear repeatedly across both exams. For each one, know the
+services involved, why each service is chosen, and what the exam alternatives
+look like when constraints change (e.g.\ lowest cost, lowest RTO, no containers).
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Three-Tier Web Application}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Presentation tier}: Route 53 (DNS) $\to$ CloudFront (CDN/cache) $\to$ ALB
+        (Layer-7 routing, SSL termination).
+  \item \textbf{Application tier}: Auto Scaling Group of EC2 in \emph{private subnets}
+        across $\geq$2 AZs; or ECS Fargate tasks (no cluster management).
+  \item \textbf{Data tier}: RDS Multi-AZ (primary write) + Read Replicas (read scaling) +
+        ElastiCache Redis (session/object cache to reduce DB load).
+  \item Static assets (HTML/CSS/JS/images) served from \textbf{S3 via CloudFront with OAC}
+        — eliminates direct S3 public access.
+  \item Use \textbf{S3 Gateway Endpoint} so EC2 instances reach S3 without traversing the
+        internet (no NAT Gateway cost, no data-transfer charge).
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}[title={[!] When the question changes the constraint}]
+\begin{itemize}
+  \item \textbf{``Reduce DB read load''} $\to$ add ElastiCache Redis (cache-aside) or
+        RDS Read Replica.
+  \item \textbf{``Higher availability across regions''} $\to$ add Route 53 Failover + warm
+        standby in second region; upgrade DB to Aurora Global Database.
+  \item \textbf{``Least operational overhead''} $\to$ replace EC2 ASG with ECS Fargate;
+        replace RDS with Aurora Serverless v2.
+  \item \textbf{``Static IP required''} $\to$ replace ALB with NLB; add Elastic IP.
+\end{itemize}
+\end{examtip}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Serverless Web Application}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Full stack}: Route 53 $\to$ CloudFront $\to$ API Gateway $\to$ Lambda $\to$
+        DynamoDB (+ DAX for sub-ms reads).
+  \item \textbf{Static content}: S3 bucket serving the SPA/frontend via CloudFront with OAC.
+  \item \textbf{Auth}: Amazon Cognito User Pools (user directory + JWT tokens) + Cognito
+        Identity Pools (exchange token for temporary AWS credentials).
+  \item \textbf{No servers to patch}; scales automatically to zero and to millions; pay per
+        request only.
+  \item Lambda@Edge or CloudFront Functions can handle auth, redirects, and header
+        manipulation at the edge — before the request reaches API Gateway.
+\end{itemize}
+\end{keyfacts}
+
+\begin{comparebox}[title={Serverless web app --- service substitutions}]
+\begin{tabular}{@{}p{4.5cm}p{7cm}@{}}
+\toprule
+\textbf{Need} & \textbf{Service} \\
+\midrule
+HTTP API, low latency, cheap          & API Gateway HTTP API (not REST API; ~70\% cheaper) \\
+REST API with full features (throttle, cache, keys) & API Gateway REST API \\
+Simple web app / API, full managed    & AWS App Runner (from container or source) \\
+Background async processing           & Lambda triggered by SQS / EventBridge \\
+Long-running tasks ($>$15 min)        & ECS Fargate task (replace Lambda) \\
+Complex multi-step workflow           & AWS Step Functions \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Event-Driven / Decoupled Pipeline}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Pattern}: Producer $\to$ SQS / Kinesis Data Streams $\to$ Lambda / ECS
+        workers $\to$ S3 / DynamoDB.
+  \item \textbf{Fan-out}: SNS topic $\to$ multiple SQS queues; each queue drives an
+        independent downstream Lambda or worker — allows parallel processing without
+        coordination.
+  \item \textbf{Rule-based routing}: EventBridge event bus; pattern rules filter events to
+        specific Lambda/SQS/Step Functions targets; preferred over SNS for event-driven
+        architectures reacting to AWS service events or SaaS.
+  \item \textbf{Failure handling}: Dead-letter queue (DLQ) on SQS or Lambda; messages that
+        exceed \texttt{maxReceiveCount} land in DLQ for inspection.
+  \item \textbf{Ordered + replay}: Kinesis Data Streams (up to 7-day replay, ordered per
+        shard); use when consumers need to replay or process in order.
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}[title={[!] SQS vs Kinesis decision}]
+\begin{itemize}
+  \item \textbf{SQS}: decouple, buffer, unknown order OK, each message processed once $\to$
+        \textbf{SQS Standard}.
+  \item \textbf{SQS FIFO}: strict order, exactly-once processing (financial transactions,
+        inventory deduction).
+  \item \textbf{Kinesis Data Streams}: ordered per shard, replay up to 7 days, multiple
+        consumers reading concurrently (fan-out without copying messages).
+  \item \textbf{Kinesis Firehose}: fully managed delivery to S3/Redshift/OpenSearch; no
+        consumer code needed; near-real-time (60 s buffer or 1 MB).
+\end{itemize}
+\end{examtip}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Data Lake Architecture}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Ingestion}: Kinesis Data Firehose (streaming) or AWS DataSync (bulk online)
+        or Snow Family (offline) $\to$ S3 raw/landing zone.
+  \item \textbf{Catalogue \& ETL}: AWS Glue (serverless ETL + Data Catalog) transforms raw
+        data $\to$ S3 curated/processed zone in Parquet/ORC.
+  \item \textbf{Query}: Amazon Athena (SQL on S3; pay per query; no infrastructure) or
+        Redshift Spectrum (query S3 directly from a Redshift cluster).
+  \item \textbf{Visualise}: Amazon QuickSight (BI dashboards; connects to Athena/Redshift/S3).
+  \item \textbf{Access control}: S3 bucket policies + Lake Formation (column/row-level
+        security on the data catalog).
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}[title={[!] Data lake query pattern shortcuts}]
+\begin{itemize}
+  \item \textbf{``Ad-hoc queries on S3 without loading''} $\to$ \textbf{Athena}.
+  \item \textbf{``Join S3 data with Redshift warehouse''} $\to$ \textbf{Redshift Spectrum}.
+  \item \textbf{``Centralise metadata and permissions across all data''} $\to$
+        \textbf{AWS Lake Formation}.
+  \item \textbf{``Serverless ETL with dependency tracking''} $\to$ \textbf{AWS Glue}.
+\end{itemize}
+\end{examtip}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Hybrid Cloud Pattern}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Network}: on-prem $\leftrightarrow$ Direct Connect (consistent, private,
+        lower latency) \emph{or} Site-to-Site VPN (lower cost, internet, encrypted).
+        Use \textbf{both} for redundancy (VPN as failover for DX).
+  \item \textbf{File storage extension}: Storage Gateway (File mode) $\to$ S3; local cache
+        keeps hot files fast; cloud stores everything.
+  \item \textbf{Automated data transfer}: AWS DataSync (scheduled/incremental; NFS/SMB/HDFS
+        $\to$ S3/EFS/FSx); up to 10 Gbps per task.
+  \item \textbf{Bulk offline transfer}: Snowball Edge (terabytes; 80 TB per device) or
+        Snowmobile (petabytes; 100 PB per truck) when bandwidth is insufficient.
+  \item \textbf{DNS}: Route 53 Resolver inbound/outbound endpoints allow private DNS
+        resolution between on-prem DNS and Route 53 Private Hosted Zones.
+  \item \textbf{Identity}: AWS Directory Service (Managed Microsoft AD) for SSO between
+        on-prem Active Directory and AWS resources.
+\end{itemize}
+\end{keyfacts}
+
+\begin{comparebox}[title={Direct Connect vs VPN}]
+\begin{tabular}{@{}p{3.5cm}p{4.5cm}p{3.5cm}@{}}
+\toprule
+ & \textbf{Direct Connect} & \textbf{Site-to-Site VPN} \\
+\midrule
+Path       & Dedicated private fibre              & Encrypted over internet \\
+Latency    & Consistent, low                      & Variable \\
+Bandwidth  & 1 Gbps -- 100 Gbps                   & Up to 1.25 Gbps \\
+Cost       & Higher (port + data)                 & Lower \\
+Setup time & Weeks                                & Minutes \\
+Encryption & Not by default (add VPN on DX)       & Always encrypted (IPsec) \\
+Best for   & Steady high-volume, compliance       & Backup/failover, quick setup \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Migration Services Reference}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{comparebox}[title={Migration tool selection}]
+\begin{tabular}{@{}p{4cm}p{7.5cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Use case} \\
+\midrule
+AWS DMS (Database Migration Service) & Migrate relational/NoSQL DBs; heterogeneous migrations; CDC for minimal downtime \\[3pt]
+AWS SCT (Schema Conversion Tool)     & Convert schema from one engine to another (Oracle $\to$ Aurora); runs alongside DMS \\[3pt]
+AWS DataSync                         & Online automated transfer; NFS/SMB/HDFS $\to$ S3/EFS/FSx; up to 10 Gbps \\[3pt]
+AWS Snowball Edge                    & Offline bulk transfer; 80 TB usable storage; compute at edge option \\[3pt]
+AWS Snowmobile                       & Exabyte-scale ($\geq$100 PB); physical truck transport \\[3pt]
+AWS Application Migration Service (MGN) & Lift-and-shift; continuous block-level replication; minimal-downtime cutover \\[3pt]
+AWS Transfer Family                  & Managed SFTP/FTPS/FTP/AS2 to S3 or EFS; drop-in replacement for on-prem FTP servers \\[3pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}[title={[!] Migration exam shortcuts}]
+\begin{itemize}
+  \item \textbf{``Transfer 2 PB with limited bandwidth''} $\to$ \textbf{Snowball Edge} (multiple devices).
+  \item \textbf{``Transfer 100 PB or more''} $\to$ \textbf{Snowmobile}.
+  \item \textbf{``Ongoing DB migration, minimal downtime''} $\to$ \textbf{DMS with CDC} (Change Data Capture).
+  \item \textbf{``Oracle to Aurora''} $\to$ \textbf{SCT} (schema) + \textbf{DMS} (data).
+  \item \textbf{``Lift-and-shift 200 servers''} $\to$ \textbf{Application Migration Service (MGN)}.
+  \item \textbf{``Automated periodic transfer from on-prem NAS to S3''} $\to$ \textbf{DataSync}.
+\end{itemize}
+\end{examtip}
+
+\begin{sapdepth}
+\textbf{SAP migration depth}: SAP-C02 adds the \textbf{7Rs framework} (Retire, Retain, Rehost,
+Relocate, Replatform, Repurchase, Refactor) as a \emph{decision methodology}, not just a tool list.
+Refactor (re-architect to cloud-native) has the highest long-term benefit but the highest effort.
+Rehost (lift-and-shift via MGN) has the lowest benefit but lowest effort and is the fastest path.
+SAP scenarios will ask you to recommend the right ``R'' for a given business constraint.
+\end{sapdepth}

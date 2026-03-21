@@ -1,0 +1,189 @@
+%% ============================================================
+%% saa/domains.tex  —  SAA-C03 Domain Summaries
+%% Keep this as a high-level map; deeper content lives in
+%% the service files in shared/services/
+%% ============================================================
+
+\section{Domain Map Overview}
+
+Use this section as a \emph{navigation guide}: when you see a question keyword,
+jump to the matching domain and then the relevant service file.
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 1 — Design Secure Architectures (30\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{1}{Design Secure Architectures}
+\textbf{Key services to know:} IAM, STS, KMS, CloudTrail, GuardDuty, Config,
+Security Hub, WAF, Shield, ACM, Secrets Manager, Cognito, VPC Security Groups, NACLs.
+
+\textbf{Core tasks:}
+\begin{itemize}
+  \item Design secure access to AWS resources (least privilege, roles, policies)
+  \item Design secure workloads and applications (encryption, secrets, endpoints)
+  \item Determine appropriate data-security controls (at-rest, in-transit)
+\end{itemize}
+
+\textbf{Watch for keywords:} "least privilege," "encrypt at rest," "prevent public access,"
+"audit trail," "centrally manage credentials," "DDoS protection."
+\end{domainsummary}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 2 — Design Resilient Architectures (26\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{2}{Design Resilient Architectures}
+\textbf{Key services to know:} EC2 Auto Scaling, ALB/NLB, Route 53, RDS Multi-AZ,
+Aurora Global, S3 CRR, CloudFront, SQS (decoupling), EFS, Elastic Beanstalk,
+CloudFormation (IaC for recovery).
+
+\textbf{Core tasks:}
+\begin{itemize}
+  \item Design scalable and loosely coupled architectures
+  \item Design highly available and fault-tolerant architectures
+\end{itemize}
+
+\textbf{RPO \& RTO quick reference:}
+\begin{comparebox}[title={DR strategies — fastest/costliest to slowest/cheapest}]
+\begin{tabular}{@{}p{3.5cm}p{3cm}p{3cm}p{3.5cm}@{}}
+\toprule
+\textbf{Strategy} & \textbf{RTO} & \textbf{RPO} & \textbf{Cost} \\
+\midrule
+Multi-site active/active & Near zero  & Near zero & Highest \\
+Warm standby             & Minutes    & Seconds   & High    \\
+Pilot light              & 10s min    & Minutes   & Medium  \\
+Backup \& restore        & Hours      & Hours     & Lowest  \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\textbf{Watch for keywords:} "eliminate single point of failure," "automatic failover,"
+"decouple," "stateless," "multi-AZ," "multi-region," "RTO of X minutes."
+\end{domainsummary}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 3 — Design High-Performing Architectures (24\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{3}{Design High-Performing Architectures}
+\textbf{Key services to know:} ElastiCache (Redis/Memcached), CloudFront, Global
+Accelerator, DynamoDB (DAX), Aurora, Kinesis, SQS, ECS/Fargate, Lambda, EBS io2,
+Instance Store, S3 Transfer Acceleration, DataSync.
+
+\textbf{Core tasks:}
+\begin{itemize}
+  \item Determine high-performing and/or scalable storage solutions
+  \item Design high-performing and elastic compute solutions
+  \item Determine high-performing database solutions
+  \item Determine high-performing and/or scalable network architectures
+  \item Determine high-performing data ingestion and transformation solutions
+\end{itemize}
+
+\textbf{Watch for keywords:} "sub-millisecond latency," "millions of requests,"
+"read-heavy," "caching," "low-latency global," "throughput," "streaming data."
+\end{domainsummary}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Domain 4 — Design Cost-Optimized Architectures (20\%)}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{domainsummary}{4}{Design Cost-Optimized Architectures}
+\textbf{Key services to know:} S3 Intelligent-Tiering, Lifecycle policies, Spot Instances,
+Savings Plans, Reserved Instances, Lambda (pay-per-use), Auto Scaling (right-size),
+Cost Explorer, Trusted Advisor, Compute Optimizer, S3 Glacier, EBS gp3.
+
+\textbf{Core tasks:}
+\begin{itemize}
+  \item Design cost-optimized storage solutions
+  \item Design cost-optimized compute solutions
+  \item Design cost-optimized database solutions
+  \item Design cost-optimized network architectures
+\end{itemize}
+
+\textbf{Watch for keywords:} "lowest cost," "most cost-effective," "reduce expenses,"
+"infrequent access," "variable workload," "serverless," "reserved capacity."
+\end{domainsummary}
+
+\begin{examtip}
+In cost questions, the answer is almost never On-Demand EC2. Default to:
+Spot (fault-tolerant batch) → Savings Plan/RI (steady-state) → Lambda (sporadic events).
+\end{examtip}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{Common Exam Scenarios}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{comparebox}[title={Scenario keyword → correct answer mapping}]
+\begin{tabular}{@{}p{5.5cm}p{6cm}@{}}
+\toprule
+\textbf{Scenario keyword / phrase} & \textbf{Answer direction} \\
+\midrule
+``Least operational overhead'' & Fully managed / serverless (Fargate, Aurora, Lambda) \\[3pt]
+``Most cost-effective'' & Spot (batch), Savings Plans (steady), Lambda (sporadic) \\[3pt]
+``High availability within a region'' & Multi-AZ deployment \\[3pt]
+``Near-zero RPO / RTO globally'' & Aurora Global Database or DynamoDB Global Tables \\[3pt]
+``Static IP for load balancer'' & NLB (not ALB) \\[3pt]
+``Path-based routing'' & ALB (not NLB or CLB) \\[3pt]
+``3rd-party firewall / IDS in-line'' & Gateway Load Balancer \\[3pt]
+``Prevent public S3 access from all accounts'' & S3 Block Public Access (org-level) \\[3pt]
+``Access S3 from EC2 without internet'' & S3 Gateway Endpoint (free) \\[3pt]
+``Cross-account S3 replication'' & S3 CRR with IAM role in destination account \\[3pt]
+``Audit who made an API call'' & CloudTrail \\[3pt]
+``Detect non-compliant resource configuration'' & AWS Config rules \\[3pt]
+``Real-time threat detection (no agents)'' & GuardDuty \\[3pt]
+``Scan EC2 for unpatched CVEs'' & Amazon Inspector \\[3pt]
+``Find PII in S3 buckets'' & Amazon Macie \\[3pt]
+``Centralise secrets with auto-rotation'' & Secrets Manager \\[3pt]
+``Store config parameters (non-sensitive)'' & Parameter Store (Standard, free) \\[3pt]
+``Gradual traffic shift for deployment'' & Route 53 Weighted or CodeDeploy canary \\[3pt]
+``Active-passive DNS failover'' & Route 53 Failover routing + health check \\[3pt]
+``Decouple tiers, handle burst'' & SQS Standard queue \\[3pt]
+``Ordered messages, no duplicates'' & SQS FIFO \\[3pt]
+``Fan-out to multiple subscribers'' & SNS (then SNS → SQS fan-out) \\[3pt]
+``Real-time streaming with replay'' & Kinesis Data Streams \\[3pt]
+``Batch data delivery to S3/Redshift'' & Kinesis Data Firehose \\[3pt]
+``Step-by-step workflow with retries'' & Step Functions \\[3pt]
+``Share a file system across Linux EC2'' & EFS (NFS) \\[3pt]
+``Share a file system across Windows EC2'' & FSx for Windows File Server \\[3pt]
+``HPC / ML training, massive parallelism'' & FSx for Lustre \\[3pt]
+``Offline bulk transfer (TB/PB)'' & Snow Family (Snowball Edge / Snowmobile) \\[3pt]
+``Hybrid: on-prem apps, files in cloud'' & Storage Gateway (File mode → S3) \\[3pt]
+``DDoS protection + WAF'' & Shield Advanced + WAF on CloudFront/ALB \\[3pt]
+``Prove AWS is compliant (auditor report)'' & AWS Artifact \\[3pt]
+``Continuously collect audit evidence'' & AWS Audit Manager \\[3pt]
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+%% ─────────────────────────────────────────────────────────────
+\subsection{SAA-C03 Answering Strategy}
+%% ─────────────────────────────────────────────────────────────
+
+\begin{examtip}[title={[!] SAA-C03 Exam Tips}]
+\begin{enumerate}
+  \item \textbf{Identify the constraint first.} Every SAA question has a primary constraint:
+        cost, availability, performance, security, or operational overhead. Find it before
+        reading the answers.
+  \item \textbf{Eliminate wrong-answer traps immediately:}
+        \begin{itemize}
+          \item Single-AZ for ``highly available'' requirement --- always wrong.
+          \item Access keys hard-coded / stored on EC2 --- always wrong (use IAM role).
+          \item On-Demand EC2 for a cost-optimisation question --- almost always wrong.
+          \item Manual steps when an AWS service can automate --- almost always wrong.
+        \end{itemize}
+  \item \textbf{Managed $>$ unmanaged.} Aurora over RDS on EC2. Fargate over self-managed
+        EC2 containers. Lambda over long-running EC2. The exam rewards lower operational overhead.
+  \item \textbf{Keyword mapping.} Train yourself to pattern-match scenario words to services:
+        ``decouple'' = SQS; ``fan-out'' = SNS; ``stream/replay'' = Kinesis; ``graph'' = Neptune;
+        ``time-series'' = Timestream; ``full-text search'' = OpenSearch.
+  \item \textbf{Multi-response questions.} Select \emph{exactly} the number of answers asked
+        (usually 2 or 3). Each correct answer is independent --- there are no partial-credit traps
+        where one wrong answer cancels the others.
+  \item \textbf{Flag and return.} Spend no more than 2 minutes on any single question.
+        Flag uncertain ones and revisit after completing the rest --- you may encounter
+        a later question that jogs your memory.
+  \item \textbf{Well-Architected Five Pillars} as a tiebreaker: Operational Excellence,
+        Security, Reliability, Performance Efficiency, Cost Optimisation. When stuck,
+        ask which pillar the question is testing and pick the answer that best satisfies it.
+\end{enumerate}
+\end{examtip}

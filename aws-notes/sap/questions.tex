@@ -1,0 +1,261 @@
+%% ============================================================
+%% sap/questions.tex  —  SAP-C02 Practice Questions
+%%
+%% HOW TO ADD A QUESTION:
+%%   \begin{question}{unique-label}{SAP}{topic name}
+%%     Question text...
+%%     \begin{enumerate}[label=\Alph*.]
+%%       \item Option A
+%%       \item Option B
+%%       \item Option C (correct)
+%%       \item Option D
+%%     \end{enumerate}
+%%   \end{question}
+%%   \begin{answer}{C}
+%%     Explanation of why C is correct and why the others are wrong.
+%%   \end{answer}
+%% ============================================================
+
+\section{SAP-C02 Practice Questions}
+\label{sec:sap-questions}
+
+\textit{These questions are SAP-C02 level. Multiple-response questions specify how many answers to select. Explanations cover why the correct answer is right AND why the distractors are wrong.}
+
+%% ── Domain 1: Organisational Complexity ─────────────────────
+
+\subsection{Domain 1 --- Design for Organizational Complexity}
+
+\begin{question}{sap-q1-logging}{SAP}{multi-account logging}
+A company has 150 AWS accounts managed under AWS Organizations. The security team requires that all API activity across every account is logged immutably in a centralised location and that no individual account administrator can delete or modify those logs. Which combination of actions meets these requirements with the \emph{least operational overhead}? (Select TWO.)
+
+\begin{enumerate}[label=\Alph*.]
+  \item Enable AWS CloudTrail in each account individually and configure an S3 bucket in each account to store logs.
+  \item Create an organisation-level CloudTrail trail from the management account that logs to an S3 bucket in a dedicated Log Archive account.
+  \item Apply an S3 bucket policy on the Log Archive bucket that allows \texttt{s3:PutObject} from all organisation accounts but explicitly denies \texttt{s3:DeleteObject} and \texttt{s3:DeleteBucket}.
+  \item Use AWS Config with an aggregator to forward CloudTrail logs from each account to the central bucket.
+  \item Attach an SCP to the root OU that denies \texttt{cloudtrail:DeleteTrail} and \texttt{cloudtrail:StopLogging} for all accounts except the management account.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B, E}
+\textbf{B} is correct: an organisation-level CloudTrail trail created from the management account automatically applies to all current and future member accounts and centralises logs to a single S3 bucket --- minimal per-account setup needed.
+
+\textbf{E} is correct: an SCP applied at the Root OU that denies \texttt{cloudtrail:DeleteTrail} and \texttt{cloudtrail:StopLogging} prevents any member account administrator from disabling the trail. SCPs override even account-level admin permissions.
+
+\textbf{A} is wrong: per-account trails are high overhead (150 separate configurations) and do not prevent deletion in each account.
+
+\textbf{C} would protect the S3 bucket but does not prevent someone from disabling the trail at the source account.
+
+\textbf{D} is wrong: AWS Config is a configuration compliance service, not a mechanism for forwarding CloudTrail log files.
+
+\textit{Key concept: combine the organisation CloudTrail trail (B) with SCPs that prevent disabling it (E) for end-to-end immutability.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{sap-q2-scp}{SAP}{SCPs and IAM policy evaluation}
+An AWS Organizations management account administrator attaches a Service Control Policy (SCP) to the Production OU with an explicit \texttt{Allow} for \texttt{s3:*}. A developer in an account under that OU has an IAM policy that allows all \texttt{s3:*} actions. The developer attempts to create an S3 bucket and receives an \texttt{Access Denied} error. What is the MOST likely cause?
+
+\begin{enumerate}[label=\Alph*.]
+  \item The SCP \texttt{Allow} is overriding the IAM policy.
+  \item The management account requires a separate IAM role for member accounts.
+  \item There is an explicit \texttt{Deny} SCP at a higher level in the OU hierarchy (e.g.\ the Root OU) that overrides the \texttt{Allow} SCP.
+  \item SCPs do not apply to S3 actions.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{C}
+\textbf{C} is correct: SCP evaluation is hierarchical. If a parent OU (or the Root) has an explicit \texttt{Deny} for \texttt{s3:CreateBucket}, it overrides any \texttt{Allow} at a lower level. Also remember: SCPs do NOT grant permissions --- an SCP \texttt{Allow} alone is insufficient; both the SCP and the IAM policy must allow the action, but an SCP \texttt{Deny} at any level blocks the action regardless.
+
+\textbf{A} is wrong: SCP Allows do not override IAM; they set the maximum boundary.
+
+\textbf{B} is wrong: cross-account access is handled by IAM roles, but within an account the developer's own IAM policy applies.
+
+\textbf{D} is wrong: SCPs apply to all AWS service actions.
+
+\textit{Key insight: explicit Deny always wins. Check the full SCP inheritance chain when debugging access denied errors in a multi-account org.}
+\end{answer}
+
+%% ── Domain 1: Hybrid Networking ───────────────────────────────
+
+\begin{question}{sap-q3-vpc-transit}{SAP}{VPC connectivity}
+A company has 30 VPCs across three AWS regions. Each VPC needs to communicate with every other VPC, and all VPCs need to connect to an on-premises data centre via Direct Connect. The team must minimise operational overhead. Which architecture achieves this?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Create VPC peering connections in a full mesh between all 30 VPCs and use a separate Site-to-Site VPN to each VPC for on-premises connectivity.
+  \item Deploy one Transit Gateway (TGW) per region, peer the regional TGWs together, attach all VPCs to their regional TGW, and connect to on-premises via a Direct Connect Gateway attached to each regional TGW.
+  \item Use AWS PrivateLink to connect each VPC and use Direct Connect for on-premises.
+  \item Deploy one VPC as a hub, peer all other VPCs to it, and use that hub for on-premises connectivity.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: Transit Gateway per region, peered across regions, with a Direct Connect Gateway providing on-premises connectivity through transit virtual interfaces --- this is the standard AWS recommended multi-region hub-and-spoke architecture. It scales to hundreds of VPCs with low operational overhead.
+
+\textbf{A} is wrong: a full mesh of 30 VPCs requires $30 \times 29 / 2 = 435$ peering connections and is operationally unmanageable. VPC peering is also not transitive, so it does not simplify on-premises routing.
+
+\textbf{C} is wrong: PrivateLink is for one-directional service exposure (provider $\to$ consumer), not general any-to-any VPC routing.
+
+\textbf{D} is wrong: the ``hub'' VPC with peering is not transitive --- spokes cannot communicate with each other via the hub.
+\end{answer}
+
+%% ── Domain 2: DR Strategy ─────────────────────────────────────
+
+\subsection{Domain 2 --- Design for New Solutions}
+
+\begin{question}{sap-q4-dr}{SAP}{disaster recovery strategy selection}
+A financial services company runs a critical OLTP application on RDS Aurora MySQL. The business requires an RPO of 5 seconds and an RTO of 1 minute in the event of a regional failure. Cost must be minimised while still meeting these requirements. Which solution meets the requirements?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Configure RDS Multi-AZ with automated backups to S3 Cross-Region Replication. On failure, restore from the S3 backup in the DR region.
+  \item Use Amazon RDS with a cross-region read replica. On failure, manually promote the read replica and update DNS.
+  \item Configure Aurora Global Database with the primary in \texttt{us-east-1} and a secondary in \texttt{ap-southeast-1}. Enable Aurora's Fast Database Cloning for failover.
+  \item Configure Aurora Global Database with the primary in \texttt{us-east-1} and a secondary cluster in \texttt{ap-southeast-1}. On failure, perform a managed planned failover or unplanned failover to promote the secondary.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{D}
+\textbf{D} is correct: Aurora Global Database achieves an RPO of less than 1 second (continuous asynchronous replication at the storage layer) and an RTO of less than 1 minute (promote the secondary cluster). This directly meets the 5-second RPO and 1-minute RTO requirements.
+
+\textbf{A} is wrong: S3 CRR + restore from backup has an RTO of hours --- far exceeding the 1-minute requirement.
+
+\textbf{B} is wrong: RDS cross-region read replicas use async replication with RPO of potentially minutes; manual promotion adds to RTO and does not guarantee sub-5-second RPO.
+
+\textbf{C} is wrong: Fast Database Cloning is for creating test copies, not DR failover.
+
+\textit{Key numbers: Aurora Global --- RPO $<$ 1 s, RTO $<$ 1 min. Use this any time the exam specifies sub-second RPO or sub-minute RTO for a relational database.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{sap-q5-deployment}{SAP}{deployment strategy}
+A company needs to deploy a new version of a web application running on Amazon ECS (behind an ALB) with zero downtime and the ability to \emph{instantly rollback} if error rates increase. Which deployment strategy should they use?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Rolling update: gradually replace old task definitions with new ones in the existing ECS service.
+  \item Blue/Green deployment using AWS CodeDeploy: deploy the new version as a separate target group and shift traffic via ALB listener rules; rollback by re-weighting to the old target group.
+  \item All-at-once deployment: stop all old tasks, then start all new tasks simultaneously.
+  \item Canary deployment via Route 53 weighted routing: shift 10\% of traffic to the new version and monitor before shifting 100\%.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: Blue/Green with CodeDeploy and ALB target group weights allows instant traffic shifting (or canary % shifting) and instant rollback by re-weighting back to the old (blue) target group. CodeDeploy natively supports Blue/Green for ECS.
+
+\textbf{A} is wrong: rolling updates do not have instant rollback --- you must re-deploy the old version through another rolling cycle.
+
+\textbf{C} is wrong: all-at-once means downtime while tasks restart.
+
+\textbf{D} is valid for gradual traffic shifting but Route 53 routing operates at DNS level with TTL delays, making rollback slower than ALB target group re-weighting. Also, CodeDeploy can do canary and linear deployment natively for ECS, making it a better integrated solution.
+\end{answer}
+
+%% ── Domain 3: Operational Excellence ─────────────────────────
+
+\subsection{Domain 3 --- Continuous Improvement}
+
+\begin{question}{sap-q6-monitoring}{SAP}{performance monitoring}
+A company's three-tier web application shows intermittent high latency that only affects specific API endpoints. The team needs to identify \emph{which microservice} in the call chain is responsible and what the downstream dependencies look like. Which service should they use?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Amazon CloudWatch Metrics with custom dashboards
+  \item Amazon CloudWatch Log Insights with query filters
+  \item AWS X-Ray distributed tracing
+  \item Amazon Inspector
+\end{enumerate}
+\end{question}
+
+\begin{answer}{C}
+\textbf{C} is correct: AWS X-Ray provides distributed tracing --- it instruments the application to track requests as they flow through microservices, generating a \emph{service map} that shows each component and its latency contribution. It identifies bottlenecks, errors, and performance anomalies at the individual service/call level.
+
+\textbf{A} is wrong: CloudWatch Metrics shows aggregate metrics (CPU, memory) but does not trace individual requests through a distributed call chain.
+
+\textbf{B} is wrong: Log Insights can query structured logs but does not provide request-level distributed tracing or visualise service dependencies.
+
+\textbf{D} is wrong: Amazon Inspector is a vulnerability assessment service, not a performance tracing tool.
+\end{answer}
+
+%% ── Domain 4: Migration ───────────────────────────────────────
+
+\subsection{Domain 4 --- Migration \& Modernisation}
+
+\begin{question}{sap-q7-migration}{SAP}{migration strategy selection}
+A company wants to migrate 200 servers from on-premises to AWS as quickly as possible with no application code changes. They have a 1 Gbps Direct Connect connection. Their largest server holds 50 TB of data on network-attached storage. Which combination of tools should they use? (Select TWO.)
+
+\begin{enumerate}[label=\Alph*.]
+  \item Use AWS Application Migration Service (MGN) to replicate server operating systems and data continuously over Direct Connect, with a minimal-downtime cutover window.
+  \item Use AWS Snowball Edge to transport the 50 TB NAS dataset to AWS offline, then use DataSync for ongoing delta sync until cutover.
+  \item Use AWS DMS to migrate the 200 servers' data directly.
+  \item Use VM Import/Export for all 200 servers simultaneously.
+  \item Use S3 Transfer Acceleration for the 50 TB dataset.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{A, B}
+\textbf{A} is correct: AWS MGN (Application Migration Service) is the primary tool for lift-and-shift server migrations. It continuously replicates server disks to AWS (including over Direct Connect), then allows a low-downtime cutover. It supports hundreds of servers.
+
+\textbf{B} is correct: transferring 50 TB over a 1 Gbps link at full utilisation takes $\approx$111 hours (4.6 days) --- barely feasible but risky if the link is shared. Using Snowball Edge for the initial bulk load, then DataSync for delta synchronisation until cutover, is the standard AWS recommendation for large datasets.
+
+\textbf{C} is wrong: DMS migrates databases, not entire server operating systems.
+
+\textbf{D} is wrong: VM Import/Export is a one-off tool for individual VMs and does not scale well or provide continuous replication for 200 servers.
+
+\textbf{E} is wrong: S3 Transfer Acceleration speeds up uploads to S3 (for objects), not for 50 TB NAS server data in the context of a server OS migration.
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{sap-q8-modernise}{SAP}{modernisation / decoupling}
+A monolithic application on EC2 processes customer orders synchronously. During peak sales, the EC2 fleet cannot scale fast enough and orders are lost. The company wants to modernise with \emph{minimal code changes} and ensure no order is lost. What is the BEST first step?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Rewrite the entire application as Lambda functions with DynamoDB.
+  \item Place an SQS queue between the order intake tier and the processing tier; the intake layer writes order messages to SQS, and the processing tier reads from SQS at its own pace.
+  \item Enable Auto Scaling with a lower CPU target threshold so instances scale out faster.
+  \item Move the application to ECS Fargate containers for automatic scaling.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: inserting an SQS queue decouples intake from processing with minimal code changes (just change the processing call to write to SQS). Orders are durably stored in the queue (up to 14 days) --- none are lost. The processing tier drains the queue independently and can scale out without losing messages during scale-up lag.
+
+\textbf{A} is wrong: a full rewrite to Lambda + DynamoDB is a Refactor strategy --- high effort, not minimal code changes.
+
+\textbf{C} is wrong: Auto Scaling has a launch delay (instance warm-up); during that window, orders can still be lost if the burst is immediate.
+
+\textbf{D} is wrong: moving to Fargate still has the same synchronous coupling problem --- processing still cannot keep up with instantaneous bursts.
+
+\textit{Pattern: SQS as a buffer between tiers is the canonical answer for ``no data loss during traffic spikes with minimal changes.''}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{sap-q9-cost}{SAP}{cost optimisation}
+A company runs 50 EC2 instances for a steady-state production workload (24/7) and 20 EC2 instances for batch jobs that run between 6 PM and 6 AM on weekdays. The company wants to minimise cost over a 3-year period. Which purchasing strategy should they use?
+
+\begin{enumerate}[label=\Alph*.]
+  \item On-Demand for all instances.
+  \item 3-year Standard Reserved Instances for the 50 production instances; Spot Instances for the 20 batch job instances with an SQS queue to requeue interrupted jobs.
+  \item 1-year Convertible Reserved Instances for all 70 instances.
+  \item Savings Plans (Compute) for the 50 production instances; On-Demand for the 20 batch instances.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{B}
+\textbf{B} is correct: for 24/7 steady-state, 3-year Standard RIs provide the maximum discount (up to 72\%). For batch jobs that are fault-tolerant (can be interrupted and requeued via SQS), Spot Instances provide up to 90\% discount. This combination minimises cost for both workload types.
+
+\textbf{A} is wrong: On-Demand for everything is the most expensive option.
+
+\textbf{C} is wrong: 1-year Convertible RIs for batch instances is wasteful --- the instances don't run 24/7 so the reserved capacity is unused for 12 hours per day.
+
+\textbf{D} is partly right (Savings Plans for steady-state is valid) but On-Demand for batch is more expensive than Spot. Also, Savings Plans Compute may be better than RIs in some cases for flexibility, but the question asks for minimum cost --- Spot for interruptible batch is the clear winner.
+
+\textit{Key rule: Spot = fault-tolerant + interruptible. Standard RI = predictable 24/7. Savings Plans = flexible but lower max discount than Standard RIs.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+%% Add more questions here as you study. Suggested next questions:
+%% - IAM permission boundary + cross-account role assumption
+%% - Aurora Serverless v2 vs provisioned Aurora for variable workloads
+%% - CloudFront + WAF + Shield Advanced for a global web app
+%% - Control Tower vs DIY Organizations setup
+%% - DynamoDB Global Tables vs Aurora Global for multi-active DR

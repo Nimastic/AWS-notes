@@ -1,0 +1,75 @@
+%% ============================================================
+%% shared/services/database/rds.tex
+%% Amazon RDS + Aurora
+%% Relevant to: SAA (managed relational DB) + SAP (HA, migration, global)
+%% ============================================================
+
+\servicesection{Amazon RDS \& Aurora}{\bothtag}{%
+  Managed relational databases. RDS for standard engines; Aurora for AWS-native performance.}
+
+\subsection{Amazon RDS}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Supported engines: MySQL, PostgreSQL, MariaDB, Oracle, SQL Server, Db2
+  \item AWS manages: patching, backups, hardware, failover
+  \item \textbf{Multi-AZ} — synchronous standby in another AZ; automatic failover
+        (1–2 min); standby is \emph{not} readable (except Multi-AZ cluster mode)
+  \item \textbf{Read Replicas} — asynchronous; up to 5 per source; can be cross-region.
+        Promote to standalone if needed.
+  \item \textbf{Automated backups} — 1–35 day retention; point-in-time restore
+  \item Storage: gp2/gp3/io1; auto-scaling storage available
+\end{itemize}
+\end{keyfacts}
+
+\subsubsection{Multi-AZ vs Read Replicas}
+%% TODO: comparison — HA vs performance, sync vs async,
+%%        cost, failover behaviour
+
+\subsection{Amazon Aurora}
+
+%% TODO: MySQL/PostgreSQL compatible, 6 copies across 3 AZs,
+%%        15 read replicas, shared cluster volume (self-healing),
+%%        Aurora Serverless v2, Global Database, Aurora I/O-Optimized
+
+\subsubsection{Aurora Global Database}
+%% TODO: Primary region + up to 5 secondary regions, sub-second replication,
+%%        RPO < 1s, RTO < 1 minute; promote secondary for DR
+
+\subsubsection{Aurora Serverless v2}
+%% TODO: ACU scaling, fractions of ACU, good for variable workloads
+
+\subsection{RDS Proxy}
+
+%% TODO: Connection pooling, reduces DB load from Lambda/ECS,
+%%        enforces IAM auth, secrets rotation without app changes
+
+\subsection{Security}
+
+%% TODO: Encryption at rest (KMS, must enable at creation),
+%%        encryption in transit (SSL/TLS), IAM DB auth (MySQL/PG),
+%%        VPC placement, security groups, no public access by default
+
+\begin{saadepth}
+%% TODO: SAA pattern: web app → RDS Multi-AZ (HA) + Read Replicas (read scaling),
+%%        automated backups for PITR, parameter groups/option groups
+\end{saadepth}
+
+\begin{sapdepth}
+%% TODO: Aurora Global for active-active or DR,
+%%        Migration: DMS (ongoing replication), SCT (schema conversion),
+%%        RDS on Outposts (on-prem managed DB),
+%%        Babelfish for Aurora PG (SQL Server compatibility),
+%%        Multi-master (deprecated) → Aurora Serverless v2 + write forwarding
+\end{sapdepth}
+
+\begin{examtip}
+\textbf{Read Replica for DR:} you can promote a cross-region Read Replica to a
+standalone DB, making it a valid (though async) DR option. For near-zero RPO/RTO,
+use \textbf{Aurora Global Database}.
+\end{examtip}
+
+\begin{gotcha}
+Encrypting an existing unencrypted RDS instance is \textbf{not} possible directly.
+You must: take a snapshot → copy snapshot with encryption → restore from encrypted snapshot.
+\end{gotcha}

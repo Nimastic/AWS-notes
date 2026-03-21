@@ -1,0 +1,171 @@
+%% ============================================================
+%% shared/services/compute/auto_scaling_elb.tex
+%% EC2 Auto Scaling + Elastic Load Balancing — SAA + SAP
+%% ============================================================
+
+\servicesection{EC2 Auto Scaling}{\bothtag}{Automatically adjust EC2 fleet size based on demand}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Auto Scaling Group (ASG)}: logical group of EC2 instances; managed as a fleet.
+  \item Defines: \textbf{Minimum}, \textbf{Desired}, and \textbf{Maximum} capacity.
+  \item \textbf{Launch Template} (preferred) or Launch Configuration: specifies AMI, instance
+        type, key pair, SG, IAM role, user data for new instances.
+  \item Integrates with ELB: new instances are automatically registered with the target group;
+        unhealthy instances are replaced.
+  \item \textbf{Health checks}: EC2 status check (default) or ELB health check
+        (more precise --- app-level).
+  \item \textbf{AZ balance}: ASG distributes instances evenly across specified AZs.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Scaling Policies}
+
+\begin{comparebox}[title={Auto Scaling policy types}]
+\begin{tabular}{@{}p{3.5cm}p{5cm}p{3.5cm}@{}}
+\toprule
+\textbf{Policy} & \textbf{How it works} & \textbf{Use case} \\
+\midrule
+\textbf{Target Tracking}  & Maintains a target value for a metric
+    (e.g.\ CPU = 50\%) by adding/removing instances & Simplest; most common \\[4pt]
+\textbf{Step Scaling}     & Triggers at alarm thresholds; scales by steps
+    based on breach magnitude; does not wait for cooldown & Custom multi-step response \\[4pt]
+\textbf{Simple Scaling}   & Single action per alarm; waits for cooldown
+    before next action; legacy & Basic setups \\[4pt]
+\textbf{Scheduled Scaling} & Pre-define capacity changes for known patterns
+    (e.g.\ scale up at 8 AM Mon--Fri) & Predictable load \\[4pt]
+\textbf{Predictive Scaling} & ML analyses historical patterns; provisions
+    ahead of expected demand & Recurring traffic spikes \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Target Tracking} is the default recommendation for most scenarios.
+\textbf{Scheduled Scaling} is best when you know in advance (e.g.\ Black Friday launch,
+business-hours pattern). \textbf{Predictive} + Target Tracking together is the SAP-level
+answer for ``automatically handle cyclical load without manual intervention''.
+\end{examtip}
+
+\subsection{Lifecycle Hooks}
+
+Pause instance launch or termination to perform custom actions:
+\begin{itemize}
+  \item \textbf{Launch hook}: wait for instance to complete bootstrapping before serving traffic
+        (e.g.\ pull config from S3, run software install). Timeout: 1 hour.
+  \item \textbf{Termination hook}: drain connections, push logs to S3, deregister from
+        discovery service before instance is terminated.
+\end{itemize}
+
+\subsection{Multi-Tier Architecture Diagram}
+
+\begin{center}
+\begin{tikzpicture}[
+  tier/.style={draw=awsdark, fill=awsdark!6, rounded corners=5pt,
+               minimum width=3.8cm, minimum height=1.1cm,
+               font=\small\bfseries, align=center},
+  asg/.style={draw=saacolor, fill=saacolor!8, rounded corners=3pt,
+              minimum width=2.6cm, minimum height=0.9cm,
+              font=\tiny, align=center},
+  db/.style={draw=sapcolor, fill=sapcolor!8, rounded corners=3pt,
+             minimum width=2.6cm, minimum height=0.9cm,
+             font=\tiny, align=center},
+  arr/.style={->, thick, awsdark}
+]
+
+\node[tier] (dns)  at (0, 5.5)  {Route~53 DNS};
+\node[tier] (cf)   at (0, 4.2)  {CloudFront};
+\node[tier] (alb)  at (0, 2.9)  {ALB (Multi-AZ)};
+
+\node[asg]  (web1) at (-2.0, 1.5) {Web / App\\ASG};
+\node[asg]  (web2) at ( 2.0, 1.5) {Web / App\\ASG};
+\node[font=\tiny, color=gray] at (0, 1.5) {AZ-a \quad AZ-b};
+
+\node[db]   (rds)  at (-1.8, 0) {RDS Primary\\(AZ-a)};
+\node[db]   (rds2) at ( 1.8, 0) {RDS Standby\\(AZ-b)};
+
+\draw[arr] (dns) -- (cf);
+\draw[arr] (cf)  -- (alb);
+\draw[arr] (alb) -- (web1);
+\draw[arr] (alb) -- (web2);
+\draw[arr] (web1) -- (rds);
+\draw[arr] (web2) -- (rds);
+\draw[dashed, thick, saacolor] (rds) -- node[below, font=\tiny]{sync replication} (rds2);
+
+\end{tikzpicture}
+\end{center}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{Elastic Load Balancing (ELB)}{\bothtag}{Distribute traffic across targets in one or more AZs}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item All ELB types are \textbf{highly available} by default (across AZs in the region).
+  \item \textbf{Target types}: EC2 instances, IP addresses, Lambda functions, other ALBs (ALB only).
+  \item \textbf{Health checks}: ELB removes unhealthy targets from rotation.
+  \item \textbf{Cross-zone load balancing}: distributes traffic evenly across all registered
+        targets regardless of AZ. Default on for ALB (cost per AZ for NLB/GWLB).
+  \item \textbf{Sticky sessions (session affinity)}: route requests from same client to same
+        target (ALB: cookie-based; NLB: source IP).
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Load Balancer Types Comparison}
+
+\begin{comparebox}[title={ELB type selection}]
+\begin{tabular}{@{}p{1.8cm}p{2.5cm}p{3cm}p{4cm}@{}}
+\toprule
+\textbf{Type} & \textbf{Layer} & \textbf{Protocols} & \textbf{Best for} \\
+\midrule
+\textbf{ALB}  & L7 (application) & HTTP, HTTPS, WebSocket &
+  Host/path-based routing, microservices, containers, Lambda, gRPC \\[4pt]
+\textbf{NLB}  & L4 (transport) & TCP, UDP, TLS &
+  High-perf (millions req/s), gaming, IoT, static IP needed, PrivateLink \\[4pt]
+\textbf{GWLB} & L3 (gateway) & GENEVE (IP packets) &
+  Inline inspection via 3rd-party virtual appliances (NGFW, IDS/IPS) \\[4pt]
+\textbf{CLB}  & L4/L7 & HTTP, HTTPS, TCP &
+  Legacy; avoid for new workloads \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\begin{itemize}
+  \item \textbf{``Content-based routing''} (host header, URL path, HTTP method) $\Rightarrow$ \textbf{ALB}.
+  \item \textbf{``Static IP'' or ``millions of requests per second'' or UDP} $\Rightarrow$ \textbf{NLB}.
+  \item \textbf{``Inspect all traffic through a firewall appliance''} $\Rightarrow$ \textbf{GWLB}.
+  \item NLB supports \textbf{PrivateLink} (expose service to other VPCs/accounts) --- ALB does not.
+  \item ALB supports \textbf{Lambda} as a target --- NLB does not.
+\end{itemize}
+\end{examtip}
+
+\subsection{ALB Advanced Features}
+
+\begin{itemize}
+  \item \textbf{Listener rules}: route by host header (\texttt{api.example.com}), URL path
+        (\texttt{/images/*}), query string, HTTP method, IP source. Priority-based evaluation.
+  \item \textbf{Target groups}: pool of targets; each rule forwards to a target group.
+        Can mix instance, IP, and Lambda targets.
+  \item \textbf{Blue/green with ALB}: use weighted target groups to shift traffic gradually
+        between old and new deployments.
+  \item \textbf{Connection draining (deregistration delay)}: default 300 s; ALB allows in-flight
+        requests to complete before removing a target.
+\end{itemize}
+
+\begin{sapdepth}
+\textbf{SAP: Auto Scaling and ELB at enterprise scale:}
+\begin{itemize}
+  \item \textbf{Mixed Instances Policy}: combine On-Demand and Spot Instances in a single ASG;
+        specify multiple instance types. AWS rebalances Spot allocations to minimise interruptions.
+  \item \textbf{Warm pools}: maintain pre-initialised instances in a ``warm'' stopped state;
+        reduce scale-out latency for apps with long boot times.
+  \item \textbf{Scale-in protection}: mark specific instances as protected from scale-in
+        (e.g.\ instances processing long jobs).
+  \item \textbf{NLB + PrivateLink}: expose ALB or internal service to other AWS accounts/VPCs
+        without VPC peering. NLB is the endpoint service; consumers create Interface Endpoints.
+  \item \textbf{GWLB pattern}: VPC traffic $\rightarrow$ GWLB endpoint $\rightarrow$ GWLB $\rightarrow$
+        3rd-party IDS/IPS (via GENEVE) $\rightarrow$ back to GWLB $\rightarrow$ destination.
+        Deploy as a centralised inspection VPC (security VPC hub pattern).
+\end{itemize}
+\end{sapdepth}

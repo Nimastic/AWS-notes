@@ -1,0 +1,143 @@
+%% ============================================================
+%% shared/services/security/kms_shield_waf.tex
+%% KMS, Shield, WAF, and additional security services — SAA + SAP
+%% ============================================================
+
+\servicesection{AWS KMS --- Key Management Service}{\bothtag}{Managed encryption key creation, control, and auditing}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Customer Master Keys (CMKs)} now called \textbf{KMS Keys}:
+    \begin{itemize}
+      \item \emph{AWS-managed keys}: created/managed by AWS for specific services (e.g.\ \texttt{aws/s3}).
+            Free. Cannot rotate manually. Shared key per service per account.
+      \item \emph{Customer-managed keys (CMK)}: you create and control. \$1/month + API call costs.
+            Configurable rotation (annual automatic or manual on-demand).
+      \item \emph{AWS-owned keys}: owned by AWS services; no visibility or control.
+    \end{itemize}
+  \item \textbf{Envelope encryption}: CMK encrypts a data encryption key (DEK);
+        DEK encrypts actual data. Only DEK is stored encrypted alongside the data.
+  \item \textbf{Key Policies}: resource-based policy on the KMS key; must explicitly allow
+        IAM principals (even account root). Without a key policy, no one can use the key.
+  \item \textbf{CloudTrail integration}: every KMS API call is logged (who used which key, when).
+  \item \textbf{Multi-Region Keys}: replicate keys across regions for cross-region decryption
+        (Aurora Global, DynamoDB Global Tables, S3 CRR with SSE-KMS).
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+\textbf{KMS key types exam decision:}
+\begin{itemize}
+  \item Need \textbf{audit trail} of key usage $\Rightarrow$ Customer-managed CMK (CloudTrail logs all).
+  \item Need to \textbf{bring your own key material} $\Rightarrow$ CMK with imported key material.
+  \item Need \textbf{FIPS 140-2 Level 3} (not just Level 2) $\Rightarrow$ \textbf{CloudHSM}.
+  \item \textbf{Rotate automatically} $\Rightarrow$ enable automatic annual rotation on CMK
+        (AWS keeps old versions for decryption of existing ciphertext).
+\end{itemize}
+\end{examtip}
+
+\begin{sapdepth}
+\textbf{SAP: KMS advanced:}
+\begin{itemize}
+  \item \textbf{Cross-account}: grant another account permission in the key policy;
+        the other account's IAM policy must also allow it (two-step authorisation).
+  \item \textbf{KMS Grants}: temporary delegated permissions for specific operations
+        (e.g.\ EC2 Auto Scaling uses grants to encrypt EBS volumes).
+  \item \textbf{CloudHSM}: dedicated HSM cluster (FIPS 140-2 Level 3); you manage keys entirely.
+        No AWS access. Integrates with KMS as custom key store.
+\end{itemize}
+\end{sapdepth}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{AWS Shield \& WAF}{\bothtag}{DDoS protection and web application firewall}
+
+\subsection{AWS Shield}
+
+\begin{comparebox}[title={Shield Standard vs Advanced}]
+\begin{tabular}{@{}p{3.5cm}p{4cm}p{4cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Shield Standard} & \textbf{Shield Advanced} \\
+\midrule
+Cost          & Free (automatic) & \$3\,000/month per organisation \\
+Protection    & L3/L4 DDoS (volumetric) & L3/L4 + L7 (sophisticated) \\
+Coverage      & All AWS customers & EC2, ELB, CloudFront, Route~53, Global Accelerator \\
+DRT access    & No & Yes --- AWS DDoS Response Team (24/7) \\
+Cost protection & No & Yes --- credits for spikes due to DDoS \\
+Advanced detection & No & Yes --- real-time attack visibility, reports \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsection{AWS WAF --- Web Application Firewall}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Protects at \textbf{Layer 7 (HTTP/HTTPS)}; attaches to ALB, API Gateway, CloudFront,
+        or AppSync.
+  \item \textbf{Web ACLs}: contain rules that \texttt{Allow}, \texttt{Block}, or \texttt{Count} requests.
+  \item \textbf{Rule types}: IP set, geographic, rate-based, string/regex match,
+        SQL injection, XSS, size constraints.
+  \item \textbf{AWS Managed Rules}: pre-built rule groups (OWASP Top 10, AWSManagedRulesCommonRuleSet,
+        AWSManagedRulesKnownBadInputsRuleSet).
+  \item \textbf{Rate-based rules}: block IPs exceeding N requests per 5 minutes
+        --- effective for brute force and credential stuffing.
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+WAF is \textbf{Layer 7} only (HTTP/HTTPS). For Layer 3/4 DDoS $\Rightarrow$ Shield.
+For WAF: must attach to ALB, CloudFront, or API Gateway --- cannot attach to NLB directly.
+Rate-based rules are the go-to for ``block if more than N requests per IP''.
+\end{examtip}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{Additional Security Services}{\bothtag}{GuardDuty, Inspector, Macie, Security Hub, Secrets Manager}
+
+\begin{comparebox}[title={Security service decision table}]
+\begin{tabular}{@{}p{3.5cm}p{8cm}@{}}
+\toprule
+\textbf{Service} & \textbf{What it does / When to use} \\
+\midrule
+\textbf{GuardDuty}      & ML-based threat detection; analyses VPC Flow Logs, CloudTrail,
+                           DNS logs. Finds: compromised EC2, crypto mining, unusual API calls.
+                           Agentless; enable with one click. \\[4pt]
+\textbf{Inspector}      & Automated vulnerability scanning for EC2 (OS/package CVEs), Lambda
+                           functions, and container images in ECR. Continuous; agent on EC2. \\[4pt]
+\textbf{Macie}          & ML-based PII/sensitive data discovery in S3.
+                           Identifies SSN, credit cards, API keys in object content. \\[4pt]
+\textbf{Security Hub}   & Aggregates findings from GuardDuty, Inspector, Macie, IAM Access
+                           Analyzer, Firewall Manager. Single security dashboard. CSPM. \\[4pt]
+\textbf{Secrets Manager} & Stores, rotates, and retrieves secrets (DB passwords, API keys).
+                           \textbf{Auto-rotates} credentials (built-in for RDS/Aurora).
+                           Replaces hardcoded credentials. \\[4pt]
+\textbf{Systems Manager Parameter Store} & Cheaper secret/config store; hierarchical key-value.
+                           No auto-rotation. Use for non-sensitive config + simple secrets. \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\begin{itemize}
+  \item \textbf{``Automatically rotate database password''} $\Rightarrow$ \textbf{Secrets Manager}.
+  \item \textbf{``Detect if EC2 is mining cryptocurrency''} $\Rightarrow$ \textbf{GuardDuty}.
+  \item \textbf{``Find PII in S3 buckets''} $\Rightarrow$ \textbf{Macie}.
+  \item \textbf{``Scan EC2 for CVEs''} $\Rightarrow$ \textbf{Inspector}.
+  \item \textbf{``Centralise security findings across accounts''} $\Rightarrow$ \textbf{Security Hub}.
+\end{itemize}
+\end{examtip}
+
+\begin{sapdepth}
+\textbf{SAP: Security at enterprise scale:}
+\begin{itemize}
+  \item \textbf{AWS Firewall Manager}: centrally manage WAF rules, Shield Advanced, Security Groups,
+        and Network Firewall policies across all accounts in an AWS Organization.
+  \item \textbf{IAM Access Analyzer}: identifies resources shared externally (S3 buckets, IAM roles,
+        KMS keys, SQS queues). Generates least-privilege policies from CloudTrail activity.
+  \item \textbf{Detective}: investigate security incidents; visualises relationships between
+        GuardDuty findings, CloudTrail logs, VPC Flow Logs.
+  \item \textbf{Certificate Manager (ACM)}: provision and auto-renew TLS certificates for
+        ALB, CloudFront, API Gateway, Elastic Beanstalk. Free for public certificates.
+\end{itemize}
+\end{sapdepth}

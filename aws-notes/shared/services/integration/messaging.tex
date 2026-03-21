@@ -1,0 +1,140 @@
+%% ============================================================
+%% shared/services/integration/messaging.tex
+%% SQS, SNS, EventBridge, Step Functions, Amazon MQ
+%% Classification: BOTH (SAA: basics; SAP: patterns, Step Functions, MQ)
+%% ============================================================
+
+\servicesection{Messaging \& Application Integration}{\bothtag}{%
+  Decouple producers and consumers; event-driven architectures; workflow orchestration.}
+
+% ─── TikZ: SNS → SQS Fanout Pattern ──────────────────────────
+\subsection{Messaging Decision Framework}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  svc/.style={draw, rounded corners=4pt, minimum width=2.6cm, minimum height=0.8cm,
+               font=\small\bfseries, align=center},
+  arrow/.style={->, thick}
+]
+
+%% Producer
+\node[svc, fill=awsdark!10, draw=awsdark] (prod) at (0,0) {Producer\\(e.g.\ S3 event)};
+
+%% SNS Topic in the middle
+\node[svc, fill=tipcolor!20, draw=tipcolor] (sns) at (4,0) {SNS\\Topic};
+
+%% Three SQS fans
+\node[svc, fill=saacolor!15, draw=saacolor] (sqs1) at (8, 2.0) {SQS Queue\\(Team A)};
+\node[svc, fill=saacolor!15, draw=saacolor] (sqs2) at (8, 0.0) {SQS Queue\\(Team B)};
+\node[svc, fill=sapcolor!15, draw=sapcolor] (lam)  at (8,-2.0) {Lambda\\(Alert)};
+
+%% Arrows
+\draw[arrow, color=awsdark] (prod) -- (sns) node[midway, above, font=\tiny] {publish};
+\draw[arrow, color=tipcolor] (sns) -- (sqs1) node[midway, above right, font=\tiny] {fan-out};
+\draw[arrow, color=tipcolor] (sns) -- (sqs2);
+\draw[arrow, color=tipcolor] (sns) -- (lam);
+
+%% Consumer lambdas
+\node[svc, fill=sharedcolor!15, draw=sharedcolor, minimum width=2.0cm] (c1)
+  at (11.5, 2.0) {Consumer A\\(Lambda)};
+\node[svc, fill=sharedcolor!15, draw=sharedcolor, minimum width=2.0cm] (c2)
+  at (11.5, 0.0) {Consumer B\\(EC2)};
+
+\draw[arrow, color=saacolor] (sqs1) -- (c1);
+\draw[arrow, color=saacolor] (sqs2) -- (c2);
+
+%% Labels
+\node[font=\tiny, color=gray] at (4, -1.0) {Decoupled delivery};
+\node[font=\tiny, color=gray] at (8, -3.0) {Each subscriber gets its own copy};
+
+\end{tikzpicture}
+\caption{SNS $\to$ SQS fanout pattern: one message published to SNS fans out to multiple SQS queues, each processed independently at their own pace.}
+\end{figure}
+
+\subsection{Amazon SQS}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Standard Queue} --- at-least-once delivery; best-effort ordering; nearly unlimited throughput
+  \item \textbf{FIFO Queue} --- exactly-once processing; strict order; up to 3,000 msg/s with batching
+  \item \textbf{Visibility Timeout} --- message hidden after receive; default 30 s; max 12 hours; consumer deletes on success
+  \item \textbf{Dead-Letter Queue (DLQ)} --- messages that fail processing after \texttt{maxReceiveCount} are moved here for analysis
+  \item \textbf{Long Polling} --- reduce empty receives; wait up to 20 s for messages (preferred over short polling)
+  \item Message size: max \textbf{256 KB}; retention: up to \textbf{14 days}
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+\textbf{SQS as a buffer:} when a downstream service (e.g.\ EC2 processing fleet) cannot keep up with bursts, add an SQS queue between the producer and consumer. The queue absorbs the burst; consumers drain at their own rate. This is the canonical ``decouple with least operational overhead'' pattern.
+\end{examtip}
+
+\subsection{Amazon SNS}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Pub/sub} --- publish once, deliver to many subscribers simultaneously
+  \item Subscribers: SQS queues, Lambda, HTTP/HTTPS endpoints, email, SMS, mobile push
+  \item \textbf{Message Filtering} --- per-subscription filter policies reduce unnecessary processing
+  \item \textbf{FIFO Topics} --- ordered, deduplicated delivery to SQS FIFO queues only
+  \item \textbf{Fan-out pattern}: SNS $\to$ multiple SQS queues for parallel, independent processing
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Amazon EventBridge}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Serverless event bus} --- route events from AWS services, custom apps, and 200+ SaaS partners
+  \item \textbf{Event rules} --- match events by pattern and route to targets (Lambda, SQS, Step Functions, API GW, etc.)
+  \item \textbf{Scheduled rules} --- cron or rate expressions for periodic triggers (replaces CloudWatch Events)
+  \item \textbf{Event Archive \& Replay} --- store events and replay them for debugging or re-processing
+  \item \textbf{Cross-account event routing} --- publish events from one account's bus to another's
+\end{itemize}
+\end{keyfacts}
+
+\begin{comparebox}[title={SQS vs SNS vs EventBridge --- when to use each}]
+\begin{tabular}{@{}p{3.5cm}p{4.5cm}p{4cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Best for} & \textbf{Consumer model} \\
+\midrule
+SQS Standard      & Work queues; rate limiting; decoupling tiers                 & Pull; one consumer per message \\
+SQS FIFO          & Ordered, deduplicated processing (financial transactions)     & Pull; one consumer per message \\
+SNS               & Fan-out to multiple subscribers simultaneously               & Push; all subscribers get copy \\
+EventBridge       & Rule-based routing; SaaS integration; event replay            & Push; rule-matched targets \\
+Amazon MQ         & Lift-and-shift of ActiveMQ/RabbitMQ workloads                & Existing MQ protocol support \\
+Kinesis           & Real-time streaming data; ordered; replay; analytics          & Pull; multiple consumers (shards) \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Classic combo:} SNS $\to$ SQS = fan-out to queues for parallel, independently-scaled processing. Each team/microservice gets its own SQS queue and processes at its own pace without blocking others.
+\end{examtip}
+
+\subsection{AWS Step Functions}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Orchestrate \textbf{microservices} and Lambda functions into serverless workflows (state machines)
+  \item \textbf{Standard workflows} --- long-running (up to 1 year); exactly-once; audit history; charged per state transition
+  \item \textbf{Express workflows} --- short-duration ($<$5 min); at-least-once; high volume; cheaper
+  \item Built-in retry, catch, and error handling --- eliminates custom retry logic in code
+  \item Integrates with Lambda, ECS, DynamoDB, SQS, SNS, API GW, Bedrock, and more
+\end{itemize}
+\end{keyfacts}
+
+\begin{saadepth}
+For SAA: understand SQS/SNS fan-out and EventBridge scheduled rules for serverless architectures. Know DLQ for failed message handling.
+\end{saadepth}
+
+\begin{sapdepth}
+At SAP level:
+\begin{itemize}
+  \item \textbf{Strangler Fig with EventBridge:} gradually replace a monolith by routing traffic through EventBridge rules --- new microservices handle specific event types while the monolith handles the rest.
+  \item \textbf{Amazon MQ} --- use when migrating existing ActiveMQ or RabbitMQ; not for new architectures (use SQS/SNS instead for lower ops overhead).
+  \item \textbf{Step Functions for orchestration:} prefer Step Functions over Lambda-orchestrates-Lambda patterns (avoids hidden retry complexity, cost, and timeouts).
+  \item \textbf{EventBridge Pipes:} connect event sources to targets with optional filtering, enrichment, and transformation (reduces glue Lambda code).
+  \item Cross-account: share an EventBridge event bus via resource-based policy; enables org-wide event routing without custom infrastructure.
+\end{itemize}
+\end{sapdepth}

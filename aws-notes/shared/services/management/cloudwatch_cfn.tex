@@ -1,0 +1,174 @@
+%% ============================================================
+%% shared/services/management/cloudwatch_cfn.tex
+%% CloudWatch, CloudFormation, CloudTrail, Trusted Advisor — SAA + SAP
+%% ============================================================
+
+\servicesection{Amazon CloudWatch}{\bothtag}{Monitoring, metrics, logs, alarms, and dashboards}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Metrics}: time-series data points from AWS services and custom sources.
+        Default resolution: 1-minute (detailed monitoring) or 5-minute (basic).
+        \textbf{High-resolution}: up to 1-second resolution for custom metrics.
+  \item \textbf{Alarms}: evaluate a metric over a period; trigger actions
+        (SNS, Auto Scaling, EC2 action). States: OK, ALARM, INSUFFICIENT\_DATA.
+  \item \textbf{Logs}: collect, store, and search log files from EC2 (via CloudWatch Agent),
+        Lambda, API Gateway, ECS, CloudTrail, VPC Flow Logs, etc.
+  \item \textbf{Log Groups / Log Streams}: logs organised into groups (one per application/service)
+        and streams (one per instance/Lambda invocation).
+  \item \textbf{Log Insights}: ad-hoc query language for CloudWatch Logs. Analyse log data,
+        calculate statistics, identify errors.
+  \item \textbf{Dashboards}: cross-region, cross-account visualisations. Share with stakeholders.
+  \item \textbf{Events / EventBridge}: schedule or respond to AWS events (CloudWatch Events is now
+        EventBridge; same underlying service).
+\end{itemize}
+\end{keyfacts}
+
+\subsection{CloudWatch Agent}
+
+\begin{itemize}
+  \item Installed on EC2 (or on-premises) to ship custom metrics and logs to CloudWatch.
+  \item \textbf{Default metrics} (no agent): CPU, network, disk I/O.
+  \item \textbf{Requires agent}: Memory utilisation, disk space, process metrics.
+  \item Config stored in Systems Manager Parameter Store for centralised management.
+\end{itemize}
+
+\begin{examtip}
+``Monitor \textbf{memory} on EC2'' $\Rightarrow$ must install CloudWatch Agent.
+Default EC2 metrics do \emph{not} include memory or disk space.
+\end{examtip}
+
+\subsection{CloudWatch Alarms --- Monitoring Chain}
+
+A common pattern: metric $\rightarrow$ alarm $\rightarrow$ SNS notification $\rightarrow$ Auto Scaling / Lambda / ops team.
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={draw=awsdark, fill=awsdark!7, rounded corners=4pt,
+              minimum width=2.8cm, minimum height=0.9cm,
+              font=\small, align=center},
+  arr/.style={->, thick, awsdark}
+]
+\node[box] (cw)    at (0,0)   {CloudWatch\\Alarm};
+\node[box] (sns)   at (3.5,0) {SNS Topic};
+\node[box] (asg)   at (7.5, 0.8) {Auto Scaling\\(scale out/in)};
+\node[box] (email) at (7.5,-0.8) {Email/PagerDuty\\(ops alert)};
+\node[box] (lam)   at (7.5, 0) {Lambda\\(auto-remediate)};
+
+\draw[arr] (cw)  -- node[above, font=\tiny]{ALARM state} (sns);
+\draw[arr] (sns) -- (asg);
+\draw[arr] (sns) -- (email);
+\draw[arr] (sns) to[bend right=10] (lam);
+\end{tikzpicture}
+\end{center}
+
+\begin{saadepth}
+\textbf{SAA: CloudWatch in application architectures:}
+\begin{itemize}
+  \item \textbf{Composite Alarms}: combine multiple alarms with AND/OR; reduces alarm noise.
+        (E.g.\ alert only if both CPU AND memory are high.)
+  \item \textbf{Log metric filters}: extract metric values from log text
+        (e.g.\ count ``ERROR'' occurrences); create alarm on that custom metric.
+  \item \textbf{Container Insights}: detailed metrics for ECS, EKS, K8s (requires agent).
+  \item \textbf{Lambda Insights}: detailed function performance metrics (init duration, etc.).
+\end{itemize}
+\end{saadepth}
+
+\begin{sapdepth}
+\textbf{SAP: CloudWatch at enterprise scale:}
+\begin{itemize}
+  \item \textbf{Cross-account observability}: centralise logs and metrics from all accounts
+        into a monitoring account; uses CloudWatch cross-account sharing.
+  \item \textbf{Anomaly Detection}: ML-based; auto-generates dynamic alarm bands from
+        metric history --- no manual threshold needed.
+  \item \textbf{Metrics Streams}: near-real-time stream of metrics to Kinesis Firehose
+        $\rightarrow$ S3 / Splunk / Datadog. Alternative to polling the API.
+  \item \textbf{ServiceLens + X-Ray}: distributed tracing integrated into CloudWatch console;
+        trace request flow across Lambda, API Gateway, ECS, EC2.
+\end{itemize}
+\end{sapdepth}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{AWS CloudTrail}{\bothtag}{API activity logging --- who did what, when, from where}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Records \textbf{every API call} to AWS services (management events by default).
+  \item \textbf{Event types}: Management events (control plane --- create/delete/modify),
+        Data events (S3 object-level, Lambda invocations --- paid extra),
+        Insights events (unusual API patterns).
+  \item Logs stored in \textbf{S3 bucket} (specify at trail creation). Enable \textbf{Log File
+        Validation} to detect tampering (SHA-256 digest files).
+  \item \textbf{Multi-region trail}: single trail covers all regions; logs to one bucket.
+  \item \textbf{Retention}: CloudTrail event history (console): 90 days free. S3: indefinite.
+  \item \textbf{Integration}: EventBridge can respond to CloudTrail events in near-real-time
+        (e.g.\ alert on \texttt{DeleteBucket} or \texttt{StopInstances}).
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+\textbf{``Who deleted the S3 bucket?''} $\Rightarrow$ CloudTrail.
+\textbf{``Was there unusual API activity?''} $\Rightarrow$ CloudTrail Insights.
+\textbf{``Detect crypto mining on EC2?''} $\Rightarrow$ GuardDuty (analyses CloudTrail + VPC Flow Logs with ML).
+\end{examtip}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{AWS CloudFormation}{\bothtag}{Infrastructure as Code --- provision resources via templates}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Templates: JSON or YAML files defining AWS resources.
+  \item \textbf{Stacks}: deployed instance of a template; resources are managed together.
+  \item \textbf{Template sections}: AWSTemplateFormatVersion, Description, Parameters,
+        Mappings, Conditions, Resources (required), Outputs.
+  \item \textbf{Change Sets}: preview changes before applying (like a diff for infrastructure).
+  \item \textbf{Stack Policies}: protect specific resources from being replaced/deleted.
+  \item \textbf{Drift detection}: identify stack resources whose config has changed
+        outside CloudFormation.
+  \item \textbf{StackSets}: deploy stacks to multiple accounts and/or regions simultaneously.
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+\textbf{``Repeatable infrastructure deployments''} or \textbf{``deploy same infra to multiple accounts''}
+$\Rightarrow$ \textbf{CloudFormation StackSets}.
+\textbf{``Preview changes before deployment''} $\Rightarrow$ \textbf{Change Sets}.
+CloudFormation uses \textbf{IAM service role} --- the CF execution role must have permission
+to create all resources in the template.
+\end{examtip}
+
+\begin{sapdepth}
+\textbf{SAP: CloudFormation advanced:}
+\begin{itemize}
+  \item \textbf{Nested Stacks}: modularise large templates; child stack output becomes
+        parent stack parameter. Reuse common patterns (network, IAM, compute layers).
+  \item \textbf{Custom Resources}: invoke Lambda to provision resources not natively supported
+        by CloudFormation (3rd-party APIs, on-prem systems).
+  \item \textbf{Service Catalog}: wrap CloudFormation templates as Products; end users
+        (developers) self-service provision approved products without direct CF access.
+  \item \textbf{AWS CDK}: define infrastructure in TypeScript/Python/Java; CDK synthesises
+        CloudFormation templates. Higher abstraction level; enables unit testing of IaC.
+  \item \textbf{StackSets + Service-managed permissions}: use Organizations to automatically
+        deploy to new accounts when they join the OU.
+\end{itemize}
+\end{sapdepth}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{AWS Trusted Advisor}{\saatag}{Best-practice checks across 5 categories}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Inspects your AWS environment against best practices in 5 pillars:
+        \textbf{Cost Optimisation}, \textbf{Performance}, \textbf{Security},
+        \textbf{Fault Tolerance}, \textbf{Service Limits}.
+  \item \textbf{Basic/Developer plan}: 7 core checks (security + service limits).
+  \item \textbf{Business/Enterprise plan}: all checks; programmatic access via API;
+        CloudWatch integration for alerts.
+  \item Security checks: open S3 buckets, exposed access keys, MFA on root, security group with
+        unrestricted SSH, exposed RDS snapshots.
+  \item \textbf{Service Limit checks}: warn when approaching account quotas.
+\end{itemize}
+\end{keyfacts}

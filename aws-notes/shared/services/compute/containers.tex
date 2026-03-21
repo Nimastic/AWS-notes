@@ -1,0 +1,120 @@
+%% ============================================================
+%% shared/services/compute/containers.tex
+%% Containers on AWS — ECS, EKS, Fargate, ECR — SAP (some SAA)
+%% ============================================================
+
+\servicesection{Containers on AWS}{\saptag}{ECS, EKS, Fargate, ECR --- container orchestration}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Container}: packages application code + runtime + dependencies in a portable unit.
+        Shares host OS kernel (lighter than VMs); starts in seconds.
+  \item \textbf{Container image}: immutable snapshot; stored in a registry (ECR).
+  \item \textbf{Orchestration}: manages scheduling, scaling, networking, and health of containers
+        across a cluster.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Container Platform Selection}
+
+\begin{comparebox}[title={Container service comparison}]
+\begin{tabular}{@{}p{3.2cm}p{5cm}p{3.8cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Description} & \textbf{Choose when\ldots} \\
+\midrule
+\textbf{Amazon ECS}          & AWS-native container orchestration; simpler than Kubernetes;
+                               tight AWS service integration &
+  You want AWS-native simplicity; no Kubernetes expertise needed \\[4pt]
+\textbf{Amazon EKS}          & Managed Kubernetes; AWS handles control plane &
+  You need Kubernetes API compatibility, existing K8s tooling, or multi-cloud portability \\[4pt]
+\textbf{AWS Fargate}         & Serverless compute engine for ECS or EKS; no EC2 instances to manage;
+                               pay per vCPU/memory/second &
+  You want to run containers without managing servers \\[4pt]
+\textbf{Amazon ECR}          & Managed container image registry; integrates with ECS, EKS, Lambda,
+                               CodeBuild; OCI-compliant &
+  Always use ECR for images deployed to AWS services \\[4pt]
+\textbf{ECS Anywhere}        & Run ECS tasks on on-premises servers using SSM agent &
+  Hybrid; on-prem workloads with AWS control plane \\[4pt]
+\textbf{EKS Anywhere}        & Run EKS on on-premises hardware (bare metal / VMware) &
+  On-prem Kubernetes with EKS-compatible APIs \\[4pt]
+\textbf{AWS App Runner}      & Fully managed; deploy container or source code; auto-scales;
+                               no infrastructure knowledge needed &
+  Simple web apps/APIs with no K8s/ECS expertise \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{ECS vs EKS:} ECS = simpler, AWS-native, less overhead. EKS = Kubernetes-compatible,
+more complex, use when K8s is a hard requirement (team expertise, multi-cloud, K8s ecosystem tools).
+\textbf{EC2 launch type vs Fargate:} EC2 = more control, GPU support, lower cost at sustained load.
+Fargate = serverless, no cluster management, pay-per-task (better for variable/bursty workloads).
+\end{examtip}
+
+\subsection{Amazon ECS}
+
+\begin{itemize}
+  \item \textbf{Cluster}: logical grouping of tasks/services (EC2 or Fargate).
+  \item \textbf{Task Definition}: blueprint specifying container image(s), CPU, memory, IAM role,
+        networking mode, environment variables, log driver.
+  \item \textbf{Task}: running instance of a task definition (one-time job).
+  \item \textbf{Service}: maintains N running copies of a task; integrates with ALB/NLB;
+        handles rolling deployments and health checks.
+  \item \textbf{Task IAM Role}: credentials for the container (fine-grained, per-task; prefer over
+        EC2 instance role for containers).
+  \item \textbf{Networking modes}: \texttt{awsvpc} (each task gets own ENI + security group ---
+        recommended), \texttt{bridge} (Docker NAT), \texttt{host}.
+\end{itemize}
+
+\begin{sapdepth}
+\textbf{ECS blue/green with CodeDeploy:}
+\begin{itemize}
+  \item CodeDeploy registers new task set; shifts ALB traffic from blue (old) to green (new) target group.
+  \item Original task set retained for configurable rollback window (e.g.\ 1 hour).
+  \item Automatic rollback triggers on CloudWatch alarm.
+  \item Supports canary (10\%$\rightarrow$100\%) or linear traffic shifting.
+\end{itemize}
+\end{sapdepth}
+
+\subsection{Amazon EKS}
+
+\begin{itemize}
+  \item Managed Kubernetes control plane (API server, etcd); AWS patches and scales it.
+  \item \textbf{Node groups}: managed EC2 instances (Auto Scaling Group); or Fargate profiles
+        for serverless nodes.
+  \item \textbf{EKS Add-ons}: managed VPC CNI, CoreDNS, kube-proxy, EBS CSI driver.
+  \item \textbf{IRSA (IAM Roles for Service Accounts)}: map K8s service accounts to IAM roles;
+        fine-grained pod-level AWS permissions.
+  \item \textbf{Karpenter}: open-source node provisioner for EKS; replaces Cluster Autoscaler;
+        faster node provisioning, better bin-packing.
+\end{itemize}
+
+\subsection{Amazon ECR}
+
+\begin{itemize}
+  \item Fully managed Docker-compatible container image registry.
+  \item \textbf{Private repositories}: access via IAM (resource-based policies for cross-account).
+  \item \textbf{Public Gallery}: host public images (\texttt{public.ecr.aws}).
+  \item \textbf{Image scanning}: on-push or continuous scanning via Inspector; reports CVEs.
+  \item \textbf{Lifecycle policies}: automatically delete untagged or old images to save storage cost.
+  \item \textbf{Replication}: replicate images across regions and accounts for multi-region deployments.
+\end{itemize}
+
+\subsection{Compute Platform Selection (Full Spectrum)}
+
+\begin{comparebox}[title={Compute platform decision guide}]
+\begin{tabular}{@{}p{3.5cm}p{8cm}@{}}
+\toprule
+\textbf{Platform} & \textbf{Choose when\ldots} \\
+\midrule
+\textbf{EC2}              & Full control needed; persistent workloads; custom OS; GPU; lift-and-shift \\
+\textbf{Elastic Beanstalk} & PaaS; auto-manages infra (EC2, ALB, ASG); web apps and APIs; replatform \\
+\textbf{Lambda}           & Event-driven; short-duration; serverless; auto-scales to zero \\
+\textbf{ECS on Fargate}   & Containers; no cluster management; variable load \\
+\textbf{ECS on EC2}       & Containers; sustained high load; GPU workloads; cost optimisation \\
+\textbf{EKS}              & Kubernetes required; multi-cloud; K8s ecosystem tooling \\
+\textbf{App Runner}       & Simple web apps; source code or container; no infra knowledge \\
+\textbf{AWS Outposts}     & On-premises; data residency; hybrid; low-latency to on-prem systems \\
+\bottomrule
+\end{tabular}
+\end{comparebox}

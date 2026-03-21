@@ -1,0 +1,110 @@
+%% ============================================================
+%% shared/services/networking/cloudfront.tex
+%% Amazon CloudFront & Global Accelerator — SAA + SAP
+%% ============================================================
+
+\servicesection{Amazon CloudFront}{\bothtag}{Global CDN --- cache content at edge, reduce origin load}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Content Delivery Network (CDN)}: serves cached content from 400+ edge
+        locations worldwide; reduces latency for static and dynamic content.
+  \item \textbf{Origins}: S3 bucket, ALB, EC2, API Gateway, custom HTTP server.
+  \item \textbf{Distributions}: Web (HTTP/HTTPS) for websites and APIs.
+  \item \textbf{TTL}: configurable per behaviour; cache-control headers honoured.
+  \item \textbf{Protocol}: HTTP/HTTPS; enforces TLS; integrates with AWS Certificate Manager.
+  \item \textbf{Geo Restriction}: whitelist or blacklist countries.
+  \item \textbf{Signed URLs / Signed Cookies}: restrict access to authenticated users
+        (e.g.\ paid media, software downloads).
+  \item \textbf{Price Classes}: select which edge locations to use to reduce cost.
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Origin Access Control (OAC)}
+
+To serve S3 content exclusively through CloudFront (block direct S3 access):
+\begin{enumerate}
+  \item Create an \textbf{OAC} (Origin Access Control) --- the modern replacement for OAI.
+  \item Attach OAC to the CloudFront distribution for the S3 origin.
+  \item Update the S3 bucket policy to allow \texttt{s3:GetObject} from the OAC principal.
+  \item Keep \textbf{Block Public Access} enabled on the S3 bucket.
+\end{enumerate}
+
+\begin{examtip}
+OAC is the current best practice for S3 + CloudFront. OAI (Origin Access Identity) is
+the legacy option --- some exam questions still reference it. Both work similarly but
+OAC supports SSE-KMS encrypted buckets.
+\end{examtip}
+
+\subsection{Lambda@Edge \& CloudFront Functions}
+
+\begin{comparebox}[title={Edge compute options}]
+\begin{tabular}{@{}p{3cm}p{4cm}p{4.5cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Lambda@Edge} & \textbf{CloudFront Functions} \\
+\midrule
+Runtime          & Node.js, Python & JavaScript \\
+Triggers         & Viewer / origin request \& response & Viewer request \& response only \\
+Max exec time    & 5 s (viewer) / 30 s (origin) & 1 ms \\
+Memory           & 128 MB -- 10 GB & 2 MB \\
+Use cases        & A/B testing, JWT auth, URL rewrite, personalisation &
+                   Simple URL rewrites, header manipulation, cache key normalisation \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsection{CloudFront vs AWS Global Accelerator}
+
+\begin{comparebox}[title={CloudFront vs Global Accelerator}]
+\begin{tabular}{@{}p{3.5cm}p{4.2cm}p{4.2cm}@{}}
+\toprule
+\textbf{Factor} & \textbf{CloudFront} & \textbf{Global Accelerator} \\
+\midrule
+Layer            & L7 (HTTP/HTTPS CDN) & L4 (TCP/UDP) or L7 \\
+Caching          & Yes --- primary value & No caching \\
+Protocols        & HTTP/HTTPS, HLS       & TCP, UDP, HTTP \\
+Static IPs       & No (DNS-based)        & Yes --- 2 static anycast IPs \\
+Use cases        & Static assets, web APIs, streaming &
+                   Gaming, IoT, VoIP, non-HTTP, multi-region ALB \\
+DDoS protection  & AWS Shield Standard  & AWS Shield Standard \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\begin{itemize}
+  \item \textbf{Static files / website acceleration} $\Rightarrow$ CloudFront (caching).
+  \item \textbf{``Static IP for global traffic''} $\Rightarrow$ Global Accelerator (2 static anycast IPs).
+  \item \textbf{UDP or non-HTTP protocols} $\Rightarrow$ Global Accelerator.
+  \item \textbf{``Speed up API responses without caching''}: both can work; Global Accelerator
+        routes over AWS backbone vs CloudFront intelligent routing --- they are similar for
+        dynamic, uncacheable content.
+\end{itemize}
+\end{examtip}
+
+\begin{saadepth}
+\textbf{SAA: Common CloudFront architecture patterns:}
+\begin{itemize}
+  \item \textbf{S3 static site + CloudFront}: S3 hosts HTML/CSS/JS $\rightarrow$ CloudFront for
+        HTTPS, global caching, and OAC to keep S3 private.
+  \item \textbf{Dynamic + static}: single CloudFront distribution with multiple behaviours:
+        \texttt{/api/*} $\rightarrow$ ALB (no cache); \texttt{/static/*} $\rightarrow$ S3 (long TTL).
+  \item \textbf{Signed URLs}: distribute paid media or software. URL per-file; short expiry.
+        Signed Cookies: multiple files per session (e.g.\ streaming subscription).
+\end{itemize}
+\end{saadepth}
+
+\begin{sapdepth}
+\textbf{SAP: CloudFront advanced:}
+\begin{itemize}
+  \item \textbf{Origin Groups / Failover}: primary origin (ALB region A) fails $\rightarrow$
+        CloudFront automatically retries secondary origin (ALB region B). DR with DNS-level failover.
+  \item \textbf{Field-Level Encryption}: encrypt specific POST fields (e.g.\ credit card) at
+        the edge before sending to origin; only designated backend can decrypt.
+  \item \textbf{Cache Policies and Origin Request Policies}: fine-grained control of what goes
+        into the cache key (headers, query strings, cookies) and what is forwarded to origin.
+  \item \textbf{Real-Time Logs}: stream access logs to Kinesis Data Streams for real-time analytics.
+  \item \textbf{Continuous Deployment}: test new CloudFront configurations on a traffic sample
+        before promoting to production; zero-downtime config rollout.
+\end{itemize}
+\end{sapdepth}

@@ -1,0 +1,183 @@
+%% ============================================================
+%% shared/services/management/organizations.tex
+%% AWS Organizations, Control Tower, RAM, Multi-Account Strategy
+%% Classification: SAP-only (SAA only needs basic awareness)
+%% ============================================================
+
+\servicesection{AWS Organizations \& Multi-Account Strategy}{\saptag}{%
+  Central management of multiple AWS accounts; governance, logging, and resource sharing at scale.}
+
+% ─── TikZ: OU Hierarchy ───────────────────────────────────────
+\subsection{AWS Organizations}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  mgmt/.style={draw, rounded corners=4pt, fill=awsorange!30, draw=awsorange,
+               minimum width=3.0cm, minimum height=0.7cm, font=\small\bfseries, align=center},
+  ou/.style={draw, rounded corners=4pt, fill=sapcolor!15, draw=sapcolor,
+             minimum width=2.6cm, minimum height=0.65cm, font=\small\bfseries, align=center},
+  acct/.style={draw, rounded corners=3pt, fill=saacolor!12, draw=saacolor,
+               minimum width=2.2cm, minimum height=0.6cm, font=\scriptsize, align=center},
+  edge/.style={->, thick, color=awsdark}
+]
+
+%% Root
+\node[mgmt] (root) at (6, 7.5) {Root};
+\node[font=\tiny, color=gray] at (6, 7.0) {Management Account (not affected by SCPs)};
+
+%% OUs
+\node[ou] (ou-security) at (1.5, 5.8) {OU: Security};
+\node[ou] (ou-prod)     at (5.0, 5.8) {OU: Production};
+\node[ou] (ou-dev)      at (8.5, 5.8) {OU: Development};
+\node[ou] (ou-sandbox)  at (11.5, 5.8) {OU: Sandbox};
+
+\draw[edge] (root) -- (ou-security);
+\draw[edge] (root) -- (ou-prod);
+\draw[edge] (root) -- (ou-dev);
+\draw[edge] (root) -- (ou-sandbox);
+
+%% Security OU accounts
+\node[acct] (log)   at (0.2, 4.2) {Log Archive};
+\node[acct] (audit) at (2.8, 4.2) {Audit};
+\draw[edge] (ou-security) -- (log);
+\draw[edge] (ou-security) -- (audit);
+
+%% Production OU accounts
+\node[acct] (prod1) at (4.0, 4.2) {Prod App A};
+\node[acct] (prod2) at (6.0, 4.2) {Prod App B};
+\draw[edge] (ou-prod) -- (prod1);
+\draw[edge] (ou-prod) -- (prod2);
+
+%% Dev OU accounts
+\node[acct] (dev1) at (7.5, 4.2) {Dev App A};
+\node[acct] (dev2) at (9.5, 4.2) {Dev App B};
+\draw[edge] (ou-dev) -- (dev1);
+\draw[edge] (ou-dev) -- (dev2);
+
+%% Sandbox OU accounts
+\node[acct] (sand) at (11.5, 4.2) {Sandbox};
+\draw[edge] (ou-sandbox) -- (sand);
+
+%% SCP annotations
+\node[draw, rounded corners=2pt, fill=warncolor!10, draw=warncolor,
+      font=\tiny, align=center, minimum width=2.8cm] at (1.5, 3.0)
+  {SCP: Deny delete\\CloudTrail/Config};
+\node[draw, rounded corners=2pt, fill=warncolor!10, draw=warncolor,
+      font=\tiny, align=center, minimum width=2.8cm] at (5.0, 3.0)
+  {SCP: Deny leave\\org; require tags};
+\node[draw, rounded corners=2pt, fill=warncolor!10, draw=warncolor,
+      font=\tiny, align=center, minimum width=2.8cm] at (8.5, 3.0)
+  {SCP: Restrict to\\dev regions only};
+\node[draw, rounded corners=2pt, fill=warncolor!10, draw=warncolor,
+      font=\tiny, align=center, minimum width=2.8cm] at (11.5, 3.0)
+  {SCP: No prod\\services (e.g.\ DX)};
+
+\draw[->, dashed, color=warncolor] (1.5, 3.3) -- (ou-security);
+\draw[->, dashed, color=warncolor] (5.0, 3.3) -- (ou-prod);
+\draw[->, dashed, color=warncolor] (8.5, 3.3) -- (ou-dev);
+\draw[->, dashed, color=warncolor] (11.5, 3.3) -- (ou-sandbox);
+
+\end{tikzpicture}
+\caption{Sample AWS Organizations OU structure. SCPs flow down from Root through OUs to accounts.}
+\end{figure}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Management Account} (formerly Master) --- root of the org; creates/invites accounts; \textbf{NOT} affected by SCPs
+  \item \textbf{Organizational Units (OUs)} --- logical groupings; can be nested; SCPs apply to all accounts in OU
+  \item \textbf{Service Control Policies (SCPs)} --- set \emph{maximum} permission boundaries; do NOT grant permissions; must be combined with IAM policies
+  \item \textbf{Consolidated Billing} --- aggregate usage for volume discounts; single payment method; RI/Savings Plan sharing across accounts
+\end{itemize}
+\end{keyfacts}
+
+\begin{gotcha}
+\textbf{SCPs do NOT grant permissions} --- they only restrict the maximum permissions available. If an SCP has an explicit Deny, not even the account root user can perform that action. If an SCP has Allow, the IAM policy in the account must also Allow the action before it succeeds.
+\end{gotcha}
+
+\subsubsection{SCP Example: Restrict to Specific Regions}
+\begin{verbatim}
+{
+  "Effect": "Deny",
+  "NotAction": ["iam:*", "support:*", "sts:*"],
+  "Resource": "*",
+  "Condition": {
+    "StringNotEquals": {
+      "aws:RequestedRegion": ["us-east-1", "ap-southeast-1"]
+    }
+  }
+}
+\end{verbatim}
+\textit{\small NotAction is used so IAM/STS (global services) still work regardless of region.}
+
+% ─────────────────────────────────────────
+\subsection{AWS Control Tower}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Landing Zone} --- a well-architected, multi-account baseline environment set up automatically
+  \item \textbf{Guardrails} --- pre-configured governance rules:
+    \begin{itemize}
+      \item \emph{Preventive} guardrails = SCPs (e.g.\ disallow root user access keys)
+      \item \emph{Detective} guardrails = AWS Config rules (e.g.\ detect public S3 buckets)
+    \end{itemize}
+  \item \textbf{Account Factory} --- automates new account provisioning with approved baseline configurations; built on Service Catalog
+  \item \textbf{Log Archive Account} --- centralised CloudTrail and Config logs for all accounts
+  \item \textbf{Audit Account} --- read/write access to all accounts for security and compliance teams
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+\textbf{Organizations vs Control Tower:} AWS Organizations is the underlying service; Control Tower is an opinionated, automated layer on top. If you need to set up a multi-account environment quickly with best practices baked in, Control Tower is the answer. If you need fine-grained custom control, use Organizations + SCPs directly.
+\end{examtip}
+
+% ─────────────────────────────────────────
+\subsection{Multi-Account Logging Strategy}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Centralise \textbf{CloudTrail} logs to a dedicated \emph{Log Archive} account S3 bucket; enable org-level trail from management account
+  \item Use \textbf{S3 bucket policies} to allow writes (from member accounts) but \emph{deny deletes} --- prevents tampering
+  \item Enable \textbf{AWS Config} with an aggregator to view compliance across all accounts from a single pane
+  \item Use \textbf{Amazon EventBridge} for cross-account event routing and notifications
+  \item \textbf{AWS Security Hub} --- aggregate findings from GuardDuty, Inspector, Macie, Config across all accounts; delegate admin to security account
+\end{itemize}
+\end{keyfacts}
+
+% ─────────────────────────────────────────
+\subsection{AWS Resource Access Manager (RAM)}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item Share AWS resources across accounts \emph{without VPC peering}
+  \item Shareable resources include: VPC subnets, Transit Gateway, Route 53 Resolver rules, License Manager configurations, Capacity Reservations
+  \item \textbf{Shared VPC pattern:} central networking account owns the VPC and subnets; spoke accounts deploy resources into those subnets via RAM
+  \item Does not copy resources --- the resource stays in the owner account; RAM grants permissions
+\end{itemize}
+\end{keyfacts}
+
+% ─────────────────────────────────────────
+\subsection{Cost Management Tools}
+
+\begin{comparebox}[title={Cost management tool comparison}]
+\begin{tabular}{@{}p{3.8cm}p{7.5cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{Purpose} \\
+\midrule
+Cost Explorer            & Visualise, understand, forecast AWS costs and usage; RI/SP recommendations \\
+AWS Budgets              & Set custom cost/usage/RI budgets with alert actions (apply SCP, stop EC2) \\
+Cost and Usage Report    & Most granular billing data; integrates with Athena + QuickSight \\
+Trusted Advisor          & Recommendations for cost, security, performance, fault tolerance \\
+Compute Optimizer        & ML-based rightsizing for EC2, ECS, Lambda, EBS \\
+S3 Storage Lens          & Org-wide S3 visibility; activity and usage analytics \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\subsubsection{Tagging Strategy for Cost Allocation}
+\begin{itemize}
+  \item Tag all resources: \texttt{CostCenter}, \texttt{Project}, \texttt{Environment} (prod/dev/staging), \texttt{Owner}
+  \item \textbf{Activate cost allocation tags} in Billing Console to see them in Cost Explorer
+  \item Use \textbf{AWS Config rules} or \textbf{SCPs} to enforce mandatory tagging on resource creation
+  \item \textbf{AWS Budgets with actions} --- automatically apply an SCP or stop EC2 instances when budget thresholds are breached
+\end{itemize}

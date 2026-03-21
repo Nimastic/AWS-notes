@@ -1,0 +1,139 @@
+%% ============================================================
+%% shared/services/compute/cicd_deployment.tex
+%% CI/CD, Deployment Strategies & SSM — SAP (some SAA)
+%% ============================================================
+
+\servicesection{CI/CD Pipeline Services}{\saptag}{CodeCommit, CodeBuild, CodeDeploy, CodePipeline}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{CodeCommit}: managed Git repository; private, encrypted, integrated with IAM.
+        (Note: AWS announced end-of-life for new customers in 2024 --- GitHub/GitLab often preferred.)
+  \item \textbf{CodeBuild}: fully managed build service; compiles source, runs tests, produces artifacts.
+        Pay per build minute. No servers to manage.
+  \item \textbf{CodeDeploy}: automates application deployments to EC2, on-premises servers, Lambda,
+        and ECS. Supports rolling, blue/green, and canary deployment strategies.
+  \item \textbf{CodePipeline}: orchestrates the full CI/CD workflow; connects source $\rightarrow$
+        build $\rightarrow$ test $\rightarrow$ deploy stages. Integrates with GitHub, CodeCommit,
+        CodeBuild, CodeDeploy, CloudFormation, Elastic Beanstalk, and ECS.
+  \item \textbf{CodeArtifact}: managed artifact repository for npm, Maven, PyPI, NuGet packages.
+        Proxies public package registries with a security boundary.
+\end{itemize}
+\end{keyfacts}
+
+\begin{examtip}
+The standard SAP CI/CD pipeline is: \textbf{Source} (CodeCommit / GitHub)
+$\rightarrow$ \textbf{Build} (CodeBuild)
+$\rightarrow$ \textbf{Deploy} (CodeDeploy / CloudFormation / ECS)
+orchestrated by \textbf{CodePipeline}.
+Each stage can trigger an approval action (manual gate) before proceeding.
+\end{examtip}
+
+\subsection{Deployment Strategies}
+
+\begin{comparebox}[title={Deployment strategy comparison}]
+\begin{tabular}{@{}p{3.4cm}p{4.2cm}p{1.5cm}p{2.4cm}@{}}
+\toprule
+\textbf{Strategy} & \textbf{How it works} & \textbf{Downtime} & \textbf{Rollback} \\
+\midrule
+\textbf{All-at-once (In-place)} & Deploy to all instances simultaneously &
+  Yes (brief) & Re-deploy old version \\[4pt]
+\textbf{Rolling}        & Deploy to a subset at a time; old and new coexist &
+  Minimal & Re-deploy old \\[4pt]
+\textbf{Rolling + extra batch} & Launch extra capacity first; then roll; maintains capacity &
+  None & Re-deploy old \\[4pt]
+\textbf{Immutable}      & Launch brand-new instances; replace old entirely &
+  None & Terminate new \\[4pt]
+\textbf{Blue/Green}     & New environment in parallel; switch traffic (DNS or ALB) &
+  None & Flip DNS back \\[4pt]
+\textbf{Canary}         & Shift small \% of traffic to new version; monitor; increase &
+  None & Route 100\% back \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{Blue/Green} is the preferred SAP answer for ``zero-downtime'' + ``easy rollback''.
+Control traffic shifting with Route~53 weighted routing or ALB target group weights.
+CodeDeploy natively supports blue/green for EC2, Lambda (traffic shift), and ECS.
+\textbf{Canary} (e.g.\ 10\% $\rightarrow$ 100\%) is best for gradual validation with automated rollback
+on CloudWatch alarm.
+\end{examtip}
+
+\begin{sapdepth}
+\textbf{SAP: Advanced deployment patterns:}
+\begin{itemize}
+  \item \textbf{Lambda Canary/Linear}: CodeDeploy shifts Lambda traffic in configurable steps
+        (e.g.\ \texttt{LambdaCanary10Percent5Minutes}: 10\% for 5 min, then 100\%). Automatic rollback
+        on CloudWatch alarm.
+  \item \textbf{ECS Blue/Green}: CodeDeploy registers a new task definition; shifts ALB traffic
+        between blue (old) and green (new) target groups. Original task set is retained for rollback window.
+  \item \textbf{CloudFormation Change Sets}: preview infra changes (like a diff) before applying.
+        Use in CodePipeline for IaC deployments with human approval gates.
+  \item \textbf{Service Catalog}: package CloudFormation templates as approved Products;
+        developers self-service without direct CF access. Enforces governance at scale.
+  \item \textbf{AWS Proton}: managed deployment service for container and serverless applications;
+        platform teams define environment/service templates; dev teams self-deploy.
+\end{itemize}
+\end{sapdepth}
+
+%% ────────────────────────────────────────────────────────────────
+
+\servicesection{AWS Systems Manager (SSM)}{\bothtag}{Unified operational management for EC2 and hybrid infrastructure}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Agentless or agent-based}: SSM Agent pre-installed on Amazon Linux 2 / Windows AMIs.
+        On-premises servers use the agent with a hybrid activation.
+  \item No need to open SSH (port 22) or RDP (port 3389) for management operations.
+  \item SSM communicates over HTTPS to the SSM endpoint (no inbound ports required).
+\end{itemize}
+\end{keyfacts}
+
+\subsection{Key SSM Capabilities}
+
+\begin{comparebox}[title={SSM features}]
+\begin{tabular}{@{}p{3.8cm}p{8cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Purpose} \\
+\midrule
+\textbf{Session Manager}        & Interactive shell access to EC2 and on-premises without SSH/RDP.
+                                  Session logs go to S3/CloudWatch. Replaces bastion hosts. \\[4pt]
+\textbf{Parameter Store}        & Hierarchical key-value store for config and secrets.
+                                  Standard tier free; Advanced tier supports larger values and policies (TTL). \\[4pt]
+\textbf{Run Command}            & Execute commands at scale across a fleet of instances without SSH.
+                                  Output goes to S3/CloudWatch. \\[4pt]
+\textbf{Patch Manager}          & Define patch baselines (which patches are approved); schedule
+                                  maintenance windows; scan and remediate. \\[4pt]
+\textbf{State Manager}          & Define and maintain desired configuration state of instances
+                                  (e.g.\ antivirus installed, port 22 closed). \\[4pt]
+\textbf{Inventory}              & Collect metadata: installed software, OS config, network config.
+                                  Query across fleet; feed into Config. \\[4pt]
+\textbf{Automation}             & Runbooks (YAML/JSON) for automated remediation workflows
+                                  (e.g.\ restart service, create snapshot, rotate key). \\[4pt]
+\textbf{OpsCenter}              & Central location for operational issues (OpsItems); integrates
+                                  with CloudWatch alarms, Config, GuardDuty findings. \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{comparebox}[title={Parameter Store vs Secrets Manager}]
+\begin{tabular}{@{}p{3.5cm}p{4cm}p{4cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Parameter Store} & \textbf{Secrets Manager} \\
+\midrule
+Cost            & Free (Standard) / \$0.05/10k API (Advanced) & \$0.40/secret/month + API \\
+Auto-rotation   & No native rotation & Yes (built-in for RDS/Aurora) \\
+Max size        & 4 KB (Standard) / 8 KB (Advanced) & 64 KB \\
+Cross-account   & Via IAM / resource policy & Native cross-account \\
+Versioning      & Yes & Yes \\
+Use for         & Config values, non-sensitive params, simple secrets & DB passwords, API keys, auto-rotated credentials \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{``Automatically rotate database credentials''} $\Rightarrow$ \textbf{Secrets Manager}.
+\textbf{``Store application configuration cheaply''} $\Rightarrow$ \textbf{Parameter Store} (Standard tier is free).
+\textbf{``Replace bastion host''} $\Rightarrow$ \textbf{SSM Session Manager} (no open ports, full audit trail).
+\end{examtip}

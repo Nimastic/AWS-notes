@@ -1,0 +1,126 @@
+%% ============================================================
+%% shared/dr_strategies.tex
+%% Disaster Recovery Strategies + High Availability Patterns
+%% Classification: BOTH (SAA covers basics; SAP goes deeper on cost/trade-offs)
+%% ============================================================
+
+\servicesection{Disaster Recovery \& High Availability}{\bothtag}{%
+  RTO/RPO trade-offs and DR strategy selection across the cost/complexity spectrum.}
+
+\subsection{Key Reliability Metrics}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{RTO (Recovery Time Objective)} --- maximum acceptable downtime after a failure. Lower RTO = faster recovery = higher cost.
+  \item \textbf{RPO (Recovery Point Objective)} --- maximum acceptable data loss, measured in time. Lower RPO = more frequent replication = higher cost.
+  \item These metrics drive architecture decisions: always ask the business for RTO/RPO \emph{before} choosing a DR strategy.
+\end{itemize}
+\end{keyfacts}
+
+% ─── TikZ: DR Strategy Spectrum ───────────────────────────────
+\subsection{Disaster Recovery Strategies}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=4pt, minimum width=2.8cm, minimum height=2cm,
+               align=center, font=\small},
+  arrow/.style={->, thick, color=awsdark},
+  label/.style={font=\footnotesize\itshape, color=gray}
+]
+
+%% Four DR strategy boxes arranged left (cheap/slow) to right (costly/fast)
+\node[box, fill=saacolor!15,  draw=saacolor]  (br) at (0,0)
+  {\textbf{Backup \&}\\\textbf{Restore}\\[4pt]\scriptsize Hours / Hours};
+
+\node[box, fill=sharedcolor!15, draw=sharedcolor] (pl) at (3.4,0)
+  {\textbf{Pilot}\\\textbf{Light}\\[4pt]\scriptsize Tens of mins\\/ Minutes};
+
+\node[box, fill=tipcolor!20, draw=tipcolor] (ws) at (6.8,0)
+  {\textbf{Warm}\\\textbf{Standby}\\[4pt]\scriptsize Minutes\\/ Seconds};
+
+\node[box, fill=sapcolor!20, draw=sapcolor] (ms) at (10.2,0)
+  {\textbf{Multi-Site}\\\textbf{Active/Active}\\[4pt]\scriptsize Near zero\\/ Near zero};
+
+%% Arrows between boxes
+\draw[arrow, color=sharedcolor] (br.east) -- (pl.west);
+\draw[arrow, color=sharedcolor] (pl.east) -- (ws.west);
+\draw[arrow, color=sharedcolor] (ws.east) -- (ms.west);
+
+%% Cost axis (below)
+\draw[->, thick, color=warncolor] (-1.0,-1.4) -- (11.4,-1.4)
+  node[right, font=\small\bfseries, color=warncolor] {Cost \& Complexity};
+\node[label] at (-1.0,-1.7) {Cheapest};
+\node[label] at (11.2,-1.7) {Most Expensive};
+
+%% RTO/RPO axis (above)
+\draw[->, thick, color=saacolor, ->] (11.4,1.5) -- (-1.0,1.5)
+  node[left, font=\small\bfseries, color=saacolor] {RTO / RPO};
+\node[label] at (11.2,1.8) {Near Zero};
+\node[label] at (-0.8,1.8) {Hours};
+
+%% Labels
+\node[font=\tiny, color=saacolor, below=2pt] at (br.south) {S3 / Glacier backup};
+\node[font=\tiny, color=sharedcolor, below=2pt] at (pl.south) {Core services only};
+\node[font=\tiny, color=tipcolor, below=2pt] at (ws.south) {Scaled-down live env};
+\node[font=\tiny, color=sapcolor, below=2pt] at (ms.south) {Full prod in 2+ regions};
+
+\end{tikzpicture}
+\caption{DR Strategy Spectrum — RTO/RPO in each box; cost increases left to right.}
+\end{figure}
+
+\begin{comparebox}[title={DR Strategies}]
+\begin{tabular}{@{}p{3.2cm}p{4cm}p{1.8cm}p{1.8cm}@{}}
+\toprule
+\textbf{Strategy} & \textbf{Description} & \textbf{RTO} & \textbf{RPO} \\
+\midrule
+Backup \& Restore    & Data backed up to S3/Glacier; restore from scratch    & Hours         & Hours        \\
+Pilot Light          & Minimal core (DB replicated); scale up on failover     & Tens of mins  & Minutes      \\
+Warm Standby         & Scaled-down but fully functional environment           & Minutes       & Seconds      \\
+Multi-Site Active/Active & Full production in multiple regions simultaneously & Near zero     & Near zero    \\
+\bottomrule
+\end{tabular}
+\end{comparebox}
+
+\begin{examtip}
+\textbf{AWS Elastic Disaster Recovery (DRS)} automates continuous block-level replication from on-prem or AWS to a target region. Use it for low-RTO/RPO without running full Warm Standby infrastructure.
+Backup \& Restore is cheapest. Multi-Site is most expensive. \emph{The exam gives you RTO/RPO requirements — map them to a strategy.}
+\end{examtip}
+
+\begin{saadepth}
+For SAA, focus on:
+\begin{itemize}
+  \item RDS Multi-AZ for intra-region HA (synchronous standby, auto failover, same region)
+  \item Cross-Region Read Replicas — promote to standalone for DR in another region (async)
+  \item S3 Cross-Region Replication (CRR) for object-level DR
+  \item Route 53 health checks for DNS-based failover
+\end{itemize}
+\end{saadepth}
+
+\begin{sapdepth}
+At SAP level, expect to choose the \emph{right} strategy for given RTO/RPO/cost constraints:
+\begin{itemize}
+  \item \awsservice{Aurora Global Database} --- RPO $<$ 1 s; RTO $<$ 1 min. Primary region serves writes; up to 5 secondary regions for reads and DR promotion.
+  \item \awsservice{DynamoDB Global Tables} --- multi-region, multi-active; built-in replication; sub-second RPO.
+  \item \awsservice{AWS Backup} --- centralised backup across services (EC2, EBS, RDS, DynamoDB, EFS, FSx) with cross-account and cross-region copy.
+  \item Pilot Light pattern: keep a minimal ``always-on'' config (IAM roles, DNS records, DB replica running); on disaster, scale up compute rapidly using pre-baked AMIs or CloudFormation.
+  \item \awsservice{AWS Resilience Hub} --- continuously validates RTO/RPO against application architecture; recommends improvements.
+\end{itemize}
+\end{sapdepth}
+
+% ─────────────────────────────────────────
+\subsection{High Availability Patterns}
+
+\begin{keyfacts}
+\begin{itemize}
+  \item \textbf{Multi-AZ deployments} --- protects against AZ failure (RDS Multi-AZ, ALB across AZs, Auto Scaling across AZs)
+  \item \textbf{Auto Scaling Groups} --- automatically replace unhealthy instances; scale with demand; always span 2+ AZs
+  \item \textbf{Elastic Load Balancing} --- distributes traffic; health checks; cross-zone load balancing (ALB default ON; NLB default OFF)
+  \item \textbf{Route 53 health checks} --- DNS failover to healthy endpoints; can trigger CloudWatch alarm on failure
+  \item \textbf{SQS decoupling} --- decouple components so failure of one does not cascade (producer keeps writing; consumer retries)
+\end{itemize}
+\end{keyfacts}
+
+\begin{gotcha}
+\textbf{ALB vs NLB cross-zone:} ALB distributes evenly across all targets in all enabled AZs by default (cross-zone ON). NLB and GLB have cross-zone load balancing \emph{off} by default --- enable it explicitly if you have uneven instance counts per AZ.
+\end{gotcha}

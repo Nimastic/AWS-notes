@@ -1,0 +1,228 @@
+%% ============================================================
+%% preamble.tex  —  Shared preamble for AWS SAA + SAP notes
+%% Import with: \input{../preamble}  (from saa/ or sap/)
+%%              \input{preamble}     (from aws-notes/ root)
+%% ============================================================
+
+%% ── Packages ─────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm, top=2cm, bottom=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amssymb}
+% \usepackage{fontawesome5}     % uncomment if texlive-fonts-extra is installed
+% Fallback: define icon commands as text labels
+\newcommand{\faBook}{\textrm{[i]}}
+\newcommand{\faStar}{\textrm{[*]}}
+\newcommand{\faLightbulb}{\textrm{[!]}}
+\newcommand{\faExclamationTriangle}{\textrm{[!!]}}
+\newcommand{\faKey}{\textrm{[key]}}
+\newcommand{\faTable}{\textrm{[tbl]}}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta}
+% \usepackage{mdframed}   % removed: causes hangs in some TeX Live versions
+\usepackage{parskip}
+\usepackage{microtype}
+\usepackage{soul}               % \hl{} highlight
+
+\tcbuselibrary{skins, breakable, theorems}
+
+%% ── Colour palette ───────────────────────────────────────────
+%  AWS brand orange + exam-level colours
+\definecolor{awsorange}{HTML}{FF9900}
+\definecolor{awsdark}{HTML}{232F3E}
+\definecolor{saacolor}{HTML}{1A73E8}   % blue  → SAA
+\definecolor{sapcolor}{HTML}{7B2FBE}   % purple → SAP
+\definecolor{sharedcolor}{HTML}{0D8A6A} % teal  → both exams
+\definecolor{tipcolor}{HTML}{E67E22}   % orange → exam tip
+\definecolor{warncolor}{HTML}{C0392B}  % red    → gotcha
+\definecolor{notecolor}{HTML}{2C3E50}  % dark   → general note
+\definecolor{lightgray}{HTML}{F5F5F5}
+\definecolor{coregray}{HTML}{ECEFF1}
+
+%% ── Hyperref setup ───────────────────────────────────────────
+\hypersetup{
+  colorlinks  = true,
+  linkcolor   = awsdark,
+  urlcolor    = saacolor,
+  citecolor   = sapcolor,
+  pdftitle    = {AWS Certification Notes},
+  pdfauthor   = {},
+}
+
+%% ── Page style ───────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{awsdark}{\small\leftmark}}
+\fancyhead[R]{\textcolor{awsorange}{\small\examlabel}}  % defined per exam
+\fancyfoot[C]{\textcolor{gray}{\small\thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%% ── Section styling ──────────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{awsdark}}
+  {\thesection}{1em}{}
+  [{\color{awsorange}\titlerule[1.5pt]}]
+
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{saacolor}}
+  {\thesubsection}{1em}{}
+
+\titleformat{\subsubsection}
+  {\small\bfseries\color{sapcolor}}
+  {\thesubsubsection}{1em}{}
+
+\setlist[itemize]{leftmargin=1.5em, itemsep=2pt, topsep=4pt}
+\setlist[enumerate]{leftmargin=1.5em, itemsep=2pt, topsep=4pt}
+
+%% ── Exam-level tag commands ──────────────────────────────────
+% Inline tags — \texorpdfstring makes them safe inside section headings
+% (hyperref would hang on bare \tikz in moving arguments)
+\newcommand{\saatagrender}{%
+  \tikz[baseline=-0.5ex]\node[fill=saacolor, rounded corners=2pt,
+    inner sep=2pt, text=white, font=\bfseries\tiny]{SAA};}
+\newcommand{\saptagrender}{%
+  \tikz[baseline=-0.5ex]\node[fill=sapcolor, rounded corners=2pt,
+    inner sep=2pt, text=white, font=\bfseries\tiny]{SAP};}
+\newcommand{\bothtagrender}{%
+  \tikz[baseline=-0.5ex]\node[fill=sharedcolor, rounded corners=2pt,
+    inner sep=2pt, text=white, font=\bfseries\tiny]{SAA+SAP};}
+
+\newcommand{\saatag}{\texorpdfstring{\saatagrender}{[SAA]}}
+\newcommand{\saptag}{\texorpdfstring{\saptagrender}{[SAP]}}
+\newcommand{\bothtag}{\texorpdfstring{\bothtagrender}{[SAA+SAP]}}
+
+%% ── tcolorbox environments ───────────────────────────────────
+
+% SAA-depth block (blue)
+\newtcolorbox{saadepth}[1][]{
+  breakable,
+  colback  = saacolor!7,
+  colframe = saacolor,
+  fonttitle = \bfseries\small,
+  title    = {\faBook~SAA depth},
+  #1
+}
+
+% SAP-depth block (purple) — use when adding professional-level nuance
+\newtcolorbox{sapdepth}[1][]{
+  breakable,
+  colback  = sapcolor!7,
+  colframe = sapcolor,
+  fonttitle = \bfseries\small,
+  title    = {\faStar~SAP depth},
+  #1
+}
+
+% Exam tip (orange) — high-value exam scenario hints
+\newtcolorbox{examtip}[1][]{
+  breakable,
+  colback  = tipcolor!8,
+  colframe = tipcolor,
+  fonttitle = \bfseries\small,
+  title    = {\faLightbulb~Exam tip},
+  #1
+}
+
+% Gotcha (red) — common wrong-answer traps
+\newtcolorbox{gotcha}[1][]{
+  breakable,
+  colback  = warncolor!8,
+  colframe = warncolor,
+  fonttitle = \bfseries\small,
+  title    = {\faExclamationTriangle~Gotcha},
+  #1
+}
+
+% Key facts (teal) — quick-reference bullet list
+\newtcolorbox{keyfacts}[1][]{
+  breakable,
+  colback  = sharedcolor!7,
+  colframe = sharedcolor,
+  fonttitle = \bfseries\small,
+  title    = {\faKey~Key facts},
+  #1
+}
+
+% Comparison table wrapper
+\newtcolorbox{comparebox}[1][]{
+  breakable,
+  colback  = coregray,
+  colframe = awsdark,
+  fonttitle = \bfseries\small,
+  title    = {\faTable~Comparison},
+  #1
+}
+
+%% ── Handy inline commands ────────────────────────────────────
+\newcommand{\awsservice}[1]{\textbf{\textcolor{awsdark}{#1}}}
+\newcommand{\limit}[1]{\textcolor{warncolor}{\textbf{Limit: }#1}}
+\newcommand{\cost}[1]{\textcolor{sharedcolor}{\textbf{Cost note: }#1}}
+\newcommand{\default}[1]{\textcolor{notecolor}{\textbf{Default: }#1}}
+
+%% ── Service heading macro ────────────────────────────────────
+% \servicesection{Name}{Tag}{Short description}
+% Tag: \saatag, \saptag, or \bothtag
+% Note: the tag is placed AFTER the \section{} to avoid hyperref/tikz conflicts
+\newcommand{\servicesection}[3]{%
+  \section{#1}%
+  \noindent#2\quad\textit{\small\textcolor{gray}{#3}}\par
+  \vspace{4pt}%
+}
+
+%% ── Domain summary box (used in domain overview files) ───────
+\newtcolorbox{domainsummary}[2]{
+  breakable,
+  colback  = awsdark!5,
+  colframe = awsorange,
+  fonttitle = \bfseries,
+  title    = {Domain #1 — #2},
+}
+
+%% ── Practice question environments ──────────────────────────
+% Usage:
+%   \begin{question}{Q1}{SAP}{multi-account logging}
+%     Question text here.
+%   \end{question}
+%   \begin{answer}{A}
+%     Explanation here.
+%   \end{answer}
+
+\newcounter{qnum}[section]
+\renewcommand{\theqnum}{\arabic{qnum}}
+
+% Question box: \begin{question}{label}{exam tag}{topic}
+\newtcolorbox{question}[3]{
+  breakable,
+  colback  = awsdark!4,
+  colframe = awsdark,
+  fonttitle = \bfseries\small,
+  title    = {Question \stepcounter{qnum}\theqnum\quad\texorpdfstring{%
+    \tikz[baseline=-0.5ex]\node[fill=awsdark, rounded corners=2pt,
+      inner sep=2pt, text=white, font=\bfseries\tiny]{#2};}{[#2]}%
+    \quad\textcolor{gray}{\small(#3)}},
+  label    = {q:#1},
+}
+
+% Answer box (correct answer + explanation)
+\definecolor{answercolor}{HTML}{1B5E20}
+\newtcolorbox{answer}[1]{
+  breakable,
+  colback  = answercolor!6,
+  colframe = answercolor,
+  fonttitle = \bfseries\small,
+  title    = {Correct Answer: \textbf{#1}},
+}
+
+%% ── End of preamble ──────────────────────────────────────────

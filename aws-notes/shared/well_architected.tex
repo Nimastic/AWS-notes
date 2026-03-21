@@ -1,0 +1,107 @@
+%% ============================================================
+%% shared/well_architected.tex
+%% The AWS Well-Architected Framework — underpins BOTH exams
+%% ============================================================
+
+\servicesection{AWS Well-Architected Framework}{\bothtag}{%
+  The six pillars that guide every SAA and SAP architecture question.}
+
+The Well-Architected Framework gives you a consistent way to evaluate architectures
+and implement designs that scale over time. \textbf{Every exam domain maps back to
+at least one pillar.}
+
+\subsection{The Six Pillars}
+
+\begin{keyfacts}
+\begin{enumerate}
+  \item \textbf{Operational Excellence} — run, monitor, and improve systems.
+        Focus on automating operations and responding to events.
+  \item \textbf{Security} — protect data, systems, and assets. Includes IAM,
+        detective controls, infrastructure protection, and incident response.
+  \item \textbf{Reliability} — recover from failures and meet demand dynamically.
+        Covers HA, DR, and fault tolerance.
+  \item \textbf{Performance Efficiency} — use resources efficiently as demand
+        changes; choose the right resource type and size.
+  \item \textbf{Cost Optimization} — avoid unnecessary costs; match supply to
+        demand; use the right pricing model.
+  \item \textbf{Sustainability} — minimise environmental impact of cloud workloads.
+        (Newer pillar — appears more on SAP.)
+\end{enumerate}
+\end{keyfacts}
+
+\begin{examtip}
+When an exam question asks you to choose between two architecturally valid options,
+ask yourself: \emph{which pillar is the question testing?} Keywords like
+"least operational overhead" → Cost/Operational Excellence;
+"most fault-tolerant" → Reliability; "most secure" → Security.
+\end{examtip}
+
+\subsection{Design Principles (per pillar)}
+
+\subsubsection{Operational Excellence}
+\begin{itemize}
+  \item Perform operations as code (Infrastructure as Code)
+  \item Make frequent, small, reversible changes
+  \item Anticipate failure (game days, chaos engineering)
+  \item Learn from all operational events and failures
+\end{itemize}
+
+\subsubsection{Security}
+\begin{itemize}
+  \item Implement a strong identity foundation (least privilege)
+  \item Enable traceability (CloudTrail, Config, GuardDuty)
+  \item Apply security at all layers
+  \item Protect data in transit and at rest (KMS, TLS)
+  \item Keep people away from data (automate where possible)
+\end{itemize}
+
+\subsubsection{Reliability}
+\begin{itemize}
+  \item Test recovery procedures
+  \item Automatically recover from failure
+  \item Scale horizontally to increase aggregate system availability
+  \item Stop guessing capacity — use Auto Scaling
+  \item Manage change using automation
+\end{itemize}
+
+\subsubsection{Performance Efficiency}
+\begin{itemize}
+  \item Democratise advanced technologies (use managed services)
+  \item Go global in minutes (multi-region)
+  \item Use serverless architectures
+  \item Experiment more often
+  \item Consider mechanical sympathy (use the right tool for the job)
+\end{itemize}
+
+\subsubsection{Cost Optimization}
+\begin{itemize}
+  \item Implement cloud financial management (FinOps)
+  \item Adopt a consumption model (pay for what you use)
+  \item Measure overall efficiency (CloudWatch metrics per \$)
+  \item Stop spending money on undifferentiated heavy lifting
+  \item Analyse and attribute expenditure (tagging, Cost Explorer)
+\end{itemize}
+
+\subsubsection{Sustainability}
+\begin{itemize}
+  \item Understand your impact (carbon footprint tool)
+  \item Maximise utilisation (right-size, use Graviton)
+  \item Adopt managed services (AWS manages hardware lifecycle)
+\end{itemize}
+
+\begin{sapdepth}
+At the SAP level, questions tie the framework to \textbf{organisational strategy}:
+how do you enforce pillars across multiple accounts? Key tools:
+\begin{itemize}
+  \item \awsservice{AWS Well-Architected Tool} — workload reviews, milestone tracking
+  \item \awsservice{AWS Trusted Advisor} — automated best-practice checks (5 categories map to pillars)
+  \item \awsservice{AWS Control Tower} — landing zone that enforces guardrails (SCPs) at scale
+  \item \awsservice{AWS Service Catalog} — approved product portfolios → governance at scale
+\end{itemize}
+\end{sapdepth}
+
+\begin{examtip}[title={\faLightbulb~SAP exam tip: "most operationally efficient"}]
+SAP questions often say "with the \textbf{least operational overhead} going forward."
+This almost always points to a \textbf{managed/serverless} service over a self-managed
+EC2 solution. E.g.\ Aurora Serverless over RDS on EC2, or Fargate over EC2-backed ECS.
+\end{examtip}

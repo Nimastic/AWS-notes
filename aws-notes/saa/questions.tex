@@ -284,6 +284,103 @@ A solutions architect is designing a new service that exposes a \textbf{TCP-base
 \textit{Key: NLB = Layer 4, static IP, millions req/s, TCP/UDP. ALB = Layer 7, HTTP routing, Lambda targets. If the question mentions static IP or non-HTTP protocol, the answer is NLB.}
 \end{answer}
 
+%% ── Exam A — official-style questions ────────────────────────
+
+\begin{question}{saa-q12-s3-global-aggregation}{SAA}{S3 Transfer Acceleration and global data ingestion}
+A company collects data for temperature, humidity, and atmospheric pressure in cities across multiple continents.
+The average volume of data collected from each site daily is 500\,GB.
+Each site has a \textbf{high-speed internet connection}.
+The company wants to aggregate the data from all global sites as quickly as possible into a \textbf{single Amazon S3 bucket},
+and the solution must \textbf{minimise operational complexity}.
+Which solution meets these requirements?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Turn on S3 Transfer Acceleration on the destination S3 bucket.
+        Use multipart uploads to directly upload site data to the destination S3 bucket.
+  \item Upload the data from each site to an S3 bucket in the closest Region.
+        Use S3 Cross-Region Replication to copy objects to the destination S3 bucket.
+        Then remove the data from the origin S3 bucket.
+  \item Schedule AWS Snowball Edge Storage Optimised device jobs daily to transfer data from each site to the closest Region.
+        Use S3 Cross-Region Replication to copy objects to the destination S3 bucket.
+  \item Upload the data from each site to an Amazon EC2 instance in the closest Region.
+        Store the data in an Amazon EBS volume.
+        At regular intervals, take an EBS snapshot and copy it to the Region that contains the destination S3 bucket.
+        Restore the EBS volume in that Region.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{A}
+\textbf{A} is correct. S3 Transfer Acceleration routes uploads through \emph{CloudFront edge locations} close to each site, then uses the optimised AWS backbone to reach the destination bucket. Combined with multipart uploads (which parallelise the 500\,GB), this is the fastest single-destination path with no extra buckets, no replication lag, and minimal operational overhead.
+
+\textbf{B} is wrong. CRR eventually lands data in the destination but introduces two extra steps (staging bucket + replication + deletion), asynchronous lag, and per-site bucket management --- more complexity, not less.
+
+\textbf{C} is wrong. Snowball Edge is for \emph{limited or unreliable bandwidth} scenarios. Sites have high-speed internet, so scheduling daily physical device jobs is slower and far more operationally complex than direct internet upload.
+
+\textbf{D} is wrong. Routing 500\,GB through EC2 $\to$ EBS $\to$ snapshot $\to$ copy $\to$ restore is roundabout, expensive, and high-complexity. S3 is a direct target.
+
+\textit{Key: S3 Transfer Acceleration = fastest global upload using internet + CloudFront edge. High-speed internet + minimal complexity = Transfer Acceleration, not Snowball.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{saa-q13-athena-log-analysis}{SAA}{Ad-hoc SQL on S3 with minimal architecture change}
+A company needs the ability to \textbf{analyse the log files} of its proprietary application.
+The logs are stored in \textbf{JSON format in an Amazon S3 bucket}.
+Queries will be simple and will run on-demand.
+A solutions architect needs to perform the analysis with \textbf{minimal changes to the existing architecture}.
+What should the solutions architect do to meet these requirements with the \textbf{LEAST amount of operational overhead}?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Use Amazon Redshift to load all the content into one place and run the SQL queries as needed.
+  \item Use Amazon CloudWatch Logs to store the logs. Run SQL queries as needed from the Amazon CloudWatch console.
+  \item Use Amazon Athena directly with Amazon S3 to run the queries as needed.
+  \item Use AWS Glue to catalog the logs. Use a transient Apache Spark cluster on Amazon EMR to run the SQL queries as needed.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{C}
+\textbf{C} is correct. Amazon Athena is a \emph{serverless interactive query service} that runs SQL directly on data in S3 --- no ETL, no loading, no servers to manage. The logs are already in S3, so the architecture requires zero changes; simply point Athena at the bucket and query. It natively supports JSON and charges per query.
+
+\textbf{A} is wrong. Loading data into Redshift requires provisioning a cluster and running COPY commands. For simple on-demand queries on already-stored S3 logs this is over-engineering with high operational overhead.
+
+\textbf{B} is wrong. CloudWatch Logs Insights queries \emph{CloudWatch Logs}, not existing S3 JSON files. Moving logs to CloudWatch is itself a significant architectural change.
+
+\textbf{D} is wrong. Glue + transient EMR involves configuring crawlers, a Data Catalog, an EMR cluster, and Spark jobs --- far more complex than Athena for simple on-demand queries.
+
+\textit{Key: Logs already in S3 + simple on-demand SQL + no ETL + zero infrastructure = Athena. ``Minimal changes to existing architecture'' is the strongest signal.}
+\end{answer}
+
+%% ──────────────────────────────────────────────────────────────
+
+\begin{question}{saa-q14-org-s3-access}{SAA}{Restricting S3 access to AWS Organizations}
+A company uses \textbf{AWS Organizations} to manage multiple AWS accounts for different departments.
+The management account has an Amazon S3 bucket that contains project reports.
+The company wants to \textbf{limit access to this S3 bucket to only users of accounts within the organisation} in AWS Organizations.
+Which solution meets these requirements with the \textbf{LEAST amount of operational overhead}?
+
+\begin{enumerate}[label=\Alph*.]
+  \item Add the \texttt{aws:PrincipalOrgID} global condition key with a reference to the organisation ID to the S3 bucket policy.
+  \item Create an organisational unit (OU) for each department.
+        Add the \texttt{aws:PrincipalOrgPaths} global condition key to the S3 bucket policy.
+  \item Use AWS CloudTrail to monitor the \texttt{CreateAccount}, \texttt{InviteAccountToOrganization}, \texttt{LeaveOrganization}, and \texttt{RemoveAccountFromOrganization} events.
+        Update the S3 bucket policy accordingly.
+  \item Tag each user that needs access to the S3 bucket.
+        Add the \texttt{aws:PrincipalTag} global condition key to the S3 bucket policy.
+\end{enumerate}
+\end{question}
+
+\begin{answer}{A}
+\textbf{A} is correct. The \texttt{aws:PrincipalOrgID} condition key accepts the AWS Organizations organisation ID (e.g.\ \texttt{o-xxxx}) and \emph{automatically} covers every principal in every member account. A single condition in the bucket policy replaces any need to list individual account IDs. As accounts join or leave, the policy stays valid without updates --- lowest operational overhead.
+
+\textbf{B} is wrong. \texttt{aws:PrincipalOrgPaths} restricts by OU path, not just org membership. It requires knowing and maintaining OU path strings and adding per-department OUs --- unnecessary complexity for ``all users in the org.''
+
+\textbf{C} is wrong. Using CloudTrail events to reactively update the bucket policy is operationally complex, introduces lag, and requires building and maintaining custom event-driven automation.
+
+\textbf{D} is wrong. Tagging every IAM user across all accounts is extremely high-maintenance. New users would not automatically have the tag, creating access gaps.
+
+\textit{Key: \texttt{aws:PrincipalOrgID} in bucket policy = restrict S3 to entire org with one condition, zero per-account maintenance. Canonical exam answer for ``limit S3 to org members'' pattern.}
+\end{answer}
+
 %% ──────────────────────────────────────────────────────────────
 %% Suggested future topics:
 %% - EC2 Spot vs On-Demand for batch workloads
